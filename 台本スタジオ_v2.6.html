@@ -1,0 +1,4281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>台本スタジオ v2.6</title>
+<style>
+:root{
+  --ink:#1a1d23; --ink-2:#4a5058; --ink-3:#868d96;
+  --paper:#faf8f4; --chrome:#eeebe4; --chrome-2:#e4e0d7; --rule:#d6d1c6;
+  --ai:#2a4a6b; --warn:#8a5a1a; --err:#8f2f2f;
+
+  --hl-ending:#e05c5c; --hl-conj:#e08a3c; --hl-punct:#d4b106;
+  --hl-fuseji:#d1479a; --hl-resnum:#7b52ab; --hl-kansuji:#12907c;
+  --hl-kansuji_warn:#4bab9a; --hl-suremember:#c9760e; --hl-structure:#cc6a2b;
+  --hl-length:#5b6b7c; --hl-misc:#2f7fbf;
+  --hl-dup:#b03060;
+  --hl-joyo:#6a4c9c;
+
+  --mark1:#d94f4f; --mark2:#2f6fb5; --mark3:#c9a227;
+  --mark4:#3f8f5f; --mark5:#8a5cb8; --mark6:#5a5a5a;
+
+  --ui:"Yu Gothic UI","Yu Gothic","Hiragino Sans","Meiryo",system-ui,sans-serif;
+  --doc:Arial,"Yu Gothic","Hiragino Sans","Meiryo",sans-serif;
+
+  --ed-font:var(--doc);
+  --ed-size:16px;
+  --ed-lh:1.15;
+  --ref-size:14px;
+  --bad-a:0.16;        /* 検査表示の濃さ */
+  --bad-bar:4px;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:var(--ui);font-size:13px;color:var(--ink);background:var(--chrome);overflow:hidden}
+button{font-family:inherit;font-size:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:2px solid var(--ai);outline-offset:1px}
+
+#shell{display:flex;flex-direction:column;height:100%}
+
+/* ---- 作品タブ ---- */
+#worktabs{display:flex;background:var(--chrome-2);border-bottom:1px solid var(--rule);padding:0 6px;min-height:30px}
+.wtab{display:flex;align-items:center;gap:6px;padding:0 10px;border:none;background:none;
+  border-right:1px solid var(--rule);max-width:210px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2)}
+.wtab.on{background:var(--chrome);color:var(--ink);box-shadow:inset 0 -2px 0 var(--ai)}
+.wtab .x{opacity:.25;font-size:11px}
+.wtab:hover .x{opacity:1}
+#wtab-add{padding:0 10px;border:none;background:none;color:var(--ink-3)}
+
+/* ---- ツールバー ---- */
+#bar{display:flex;align-items:center;gap:4px;padding:5px 8px;background:var(--chrome);
+  border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.btn{padding:4px 10px;border:1px solid var(--rule);background:var(--paper);border-radius:3px}
+.btn:hover{background:#fff;border-color:var(--ink-3)}
+.btn.on{background:var(--ai);color:#fff;border-color:var(--ai)}
+.btn.mini{padding:2px 7px;font-size:11px}
+.sep{width:1px;height:18px;background:var(--rule);margin:0 4px}
+.grow{flex:1}
+/* いま太字かどうかを示す札。太字＝黒、通常＝白。 */
+#boldstate{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 7px;
+  border-radius:3px;border:1px solid var(--ink-3);background:#fff;color:var(--ink-2);
+  font-size:11px;user-select:none}
+#boldstate::before{content:'B';display:inline-flex;align-items:center;justify-content:center;
+  width:16px;height:16px;border-radius:3px;border:1px solid var(--ink-3);
+  background:#fff;color:var(--ink-2);font-weight:700;font-size:11px;line-height:1}
+#boldstate.is-bold{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:700}
+#boldstate.is-bold::before{background:#fff;color:var(--ink);border-color:#fff}
+
+#main{flex:1;display:flex;min-height:0}
+/* 書式の枠 */
+#fmtbar{display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--chrome);
+  border-bottom:1px solid var(--rule)}
+.fmt-l{font-size:11px;color:var(--ink-3);margin-right:2px}
+.fmt-note{font-size:11px;color:var(--ink-3);margin-left:6px}
+.fmtbtn{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border:1px solid var(--rule);
+  background:var(--paper);border-radius:3px;position:relative}
+.fmtbtn:hover{background:#fff;border-color:var(--ink-3)}
+.fmtbtn .fa{font-weight:700;font-family:Arial,sans-serif}
+.fmtbtn .fb{font-size:11px}
+.fmtbtn .fsw{width:16px;height:4px;border-radius:1px;border:1px solid rgba(0,0,0,.2)}
+.fmtbtn .dd{font-size:9px;color:var(--ink-3)}
+/* 色見本 */
+#palette{position:fixed;z-index:20;background:#fff;border:1px solid var(--rule);border-radius:6px;
+  box-shadow:0 6px 24px rgba(0,0,0,.18);padding:10px;width:auto}
+.pal-hd{font-size:11px;color:var(--ink-3);margin-bottom:6px}
+.pal-none{display:block;width:100%;text-align:left;border:none;background:none;padding:5px 4px;margin-bottom:6px;
+  border-radius:3px}
+.pal-none:hover{background:var(--chrome)}
+.pal-grid{display:grid;grid-template-columns:repeat(10,20px);gap:4px}
+.pal-c{width:20px;height:20px;border-radius:50%;border:1px solid rgba(0,0,0,.15);padding:0}
+.pal-c:hover{transform:scale(1.15);box-shadow:0 0 0 2px #fff,0 0 0 3px var(--ink-3)}
+.pal-c.gap{margin-top:6px}
+.pal-custom{display:flex;align-items:center;gap:6px;margin-top:10px;padding-top:8px;border-top:1px solid var(--rule);font-size:11px}
+.pal-custom input{width:34px;height:24px;padding:0;border:1px solid var(--rule)}
+.vsplit{width:5px;flex:none;cursor:col-resize;background:transparent}
+.vsplit:hover,.vsplit.drag{background:var(--ai);opacity:.35}
+.hsplit{height:5px;flex:none;cursor:row-resize;background:transparent}
+.hsplit:hover,.hsplit.drag{background:var(--ai);opacity:.35}
+
+/* ---- 工程 ---- */
+#stages{width:170px;flex:none;background:var(--chrome);display:flex;flex-direction:column;overflow:auto}
+.stage{display:flex;align-items:center;gap:6px;padding:6px 8px;border:none;background:none;width:100%;
+  text-align:left;border-bottom:1px solid rgba(0,0,0,.05);color:var(--ink-2)}
+.stage:hover{background:var(--chrome-2)}
+.stage.on{background:var(--paper);color:var(--ink);box-shadow:inset 3px 0 0 var(--ai)}
+.stage .nm{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stage .ct{font-size:10px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.stage .dot{width:7px;height:7px;border-radius:50%;flex:none}
+.stage .dot.off{visibility:hidden}
+#stage-add{padding:7px 8px;border:none;background:none;color:var(--ink-3);text-align:left}
+#stage-add:hover{background:var(--chrome-2)}
+
+/* ---- エディタ ---- */
+.pane{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--paper)}
+.pane-hd{display:flex;align-items:center;gap:8px;padding:4px 10px;border-bottom:1px solid var(--rule);
+  color:var(--ink-3);font-size:11px}
+.ed{flex:1;overflow:auto;outline:none;padding:14px 20px 60vh 62px;
+  font-family:var(--ed-font);font-size:var(--ed-size);line-height:var(--ed-lh);
+  white-space:pre-wrap;word-break:break-all;position:relative}
+.ed.guide{background-image:linear-gradient(to right,transparent 0 calc(62px + 40em),var(--rule) calc(62px + 40em) calc(62px + 40em + 1px),transparent 0);background-repeat:no-repeat}
+.ln{position:relative;min-height:calc(var(--ed-lh) * 1em)}
+.ln::before{content:attr(data-g);position:absolute;left:-58px;width:50px;text-align:right;
+  font-family:var(--ui);font-size:10px;line-height:inherit;color:var(--ink-3);
+  font-variant-numeric:tabular-nums;user-select:none;pointer-events:none}
+.ln.t-thread,.ln.t-img{font-weight:700}
+.ln.t-img{color:var(--ink-2)}
+.ln.t-head{color:var(--ai);font-family:var(--ui);font-size:.85em;font-weight:700}
+.ln.t-blank{border-bottom:1px solid rgba(0,0,0,.05)}
+.mk{color:var(--ink-3);font-weight:400;opacity:.75}
+.at{background:var(--fx-at-bg,#ffff00)}
+.pp{background:var(--fx-pp-bg,#ffff00);color:var(--fx-pp-fg,#ff0000)}
+.ln.cur{background:rgba(42,74,107,.05)}
+.ln.play{background:rgba(42,74,107,.16)}
+.ln.found{background:rgba(212,177,6,.28)}
+
+/* 検査の見せ方（設定で切替） */
+.ln.bad{background:color-mix(in srgb,var(--c) calc(var(--bad-a)*100%),transparent)}
+.st-bar .ln.bad{box-shadow:inset var(--bad-bar) 0 0 var(--c)}
+.st-under .ln.bad{background:none;text-decoration:underline wavy var(--c);text-underline-offset:3px}
+.st-both .ln.bad{box-shadow:inset var(--bad-bar) 0 0 var(--c);text-decoration:underline wavy var(--c);text-underline-offset:3px}
+.st-fill .ln.bad{box-shadow:none}
+
+/* 目印 */
+.ln[data-mark]{box-shadow:inset var(--bad-bar) 0 0 var(--c,transparent), inset 0 0 0 2px var(--mc)}
+.ln[data-mark]::after{content:'';position:absolute;left:-70px;top:.45em;width:9px;height:9px;
+  border-radius:50%;background:var(--mc);box-shadow:0 0 0 2px var(--paper)}
+
+/* ---- 副ペイン ---- */
+#side{width:340px;flex:none;background:var(--chrome);display:flex;flex-direction:column;min-height:0}
+#refbox{display:flex;flex-direction:column;min-height:0;height:240px;border-bottom:1px solid var(--rule)}
+#refbox.hide{display:none}
+.sec-hd{display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--chrome-2);
+  border-bottom:1px solid var(--rule);color:var(--ink-2);font-size:11px}
+#refed{flex:1;overflow:auto;outline:none;padding:8px 12px 20vh 12px;background:var(--paper);
+  font-family:var(--ed-font);font-size:var(--ref-size);line-height:var(--ed-lh);white-space:pre-wrap;word-break:break-all}
+#refed .ln::before{display:none}
+#sidetabs{display:flex;border-bottom:1px solid var(--rule);flex:none}
+.stab{flex:1;padding:6px 2px;border:none;background:none;color:var(--ink-3);font-size:12px}
+.stab.on{background:var(--paper);color:var(--ink);box-shadow:inset 0 -2px 0 var(--ai)}
+.sbody{flex:1;overflow:auto;display:none;min-height:0}
+.sbody.on{display:block}
+.grp{border-bottom:1px solid var(--rule)}
+.grp>summary{padding:5px 9px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:7px}
+.grp>summary::-webkit-details-marker{display:none}
+.sw{width:10px;height:10px;border-radius:2px;flex:none}
+.grp .n{margin-left:auto;color:var(--ink-3);font-variant-numeric:tabular-nums}
+.hit{display:flex;gap:6px;align-items:flex-start;padding:5px 9px;border-top:1px solid rgba(0,0,0,.05)}
+.hit:hover{background:var(--chrome-2)}
+.hit .go{flex:1;text-align:left;border:none;background:none;padding:0;color:var(--ink-2);line-height:1.45}
+.hit .ln-no{color:var(--ink-3);font-variant-numeric:tabular-nums;margin-right:5px}
+.hit .head{display:block;color:var(--ink);opacity:.75;margin-top:2px;font-size:11px}
+.hit .ex{border:none;background:none;color:var(--ink-3);font-size:10px;padding:0 2px;flex:none}
+.hit input{margin-top:3px;flex:none}
+.hit.done .go{opacity:.45;text-decoration:line-through}
+.empty{padding:22px 14px;color:var(--ink-3);line-height:1.7}
+.row{display:flex;gap:5px;padding:6px 9px;flex-wrap:wrap;align-items:center;border-bottom:1px solid var(--rule)}
+.mk-row{display:flex;align-items:center;gap:6px;padding:5px 9px;border-top:1px solid rgba(0,0,0,.05)}
+.mk-row.lost{background:#fbeaea}
+.mk-row .go{flex:1;text-align:left;border:none;background:none;padding:0;color:var(--ink-2)}
+.cdot{width:15px;height:15px;border-radius:50%;border:1px solid rgba(0,0,0,.2);padding:0;flex:none}
+.cdot.on{outline:2px solid var(--ink);outline-offset:1px}
+.ol-row{display:block;width:100%;text-align:left;border:none;background:none;padding:4px 9px;
+  border-top:1px solid rgba(0,0,0,.04);color:var(--ink-2)}
+.ol-row:hover{background:var(--chrome-2)}
+.ol-row.head{font-weight:700;color:var(--ai);background:var(--chrome-2)}
+.ol-row .num{font-variant-numeric:tabular-nums;color:var(--ink-3);margin-right:6px}
+
+#status{display:flex;align-items:center;gap:13px;padding:4px 12px;background:var(--chrome-2);
+  border-top:1px solid var(--rule);color:var(--ink-2);font-variant-numeric:tabular-nums;font-size:11px;flex-wrap:wrap}
+#status b{font-weight:700;color:var(--ink)}
+.pill{padding:1px 6px;border-radius:9px;background:var(--paper);border:1px solid var(--rule)}
+.pill.bad{background:#f7dcdc;border-color:#e0b4b4;color:var(--err)}
+
+dialog{border:1px solid var(--rule);border-radius:4px;padding:0;background:var(--paper);color:var(--ink);
+  box-shadow:0 8px 40px rgba(0,0,0,.22);max-width:min(94vw,680px)}
+dialog::backdrop{background:rgba(20,22,26,.35)}
+.dlg-hd{padding:11px 16px;border-bottom:1px solid var(--rule);font-weight:700}
+.dlg-bd{padding:14px 16px;line-height:1.75;max-height:64vh;overflow:auto}
+.dlg-ft{padding:10px 16px;border-top:1px solid var(--rule);display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+input[type=text],input[type=number],select,textarea{font-family:inherit;font-size:12px;padding:4px 6px;
+  border:1px solid var(--rule);border-radius:3px;background:#fff;color:var(--ink)}
+textarea{width:100%;min-height:110px;font-family:var(--ui);line-height:1.6}
+table.diff{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+table.diff td,table.diff th{border-bottom:1px solid var(--rule);padding:3px 6px;text-align:left;font-size:12px}
+.kv{display:grid;grid-template-columns:170px 1fr;gap:8px 10px;align-items:center}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--rule);margin-bottom:12px}
+.tabs button{padding:5px 11px;border:none;background:none;color:var(--ink-3);border-bottom:2px solid transparent}
+.tabs button.on{color:var(--ink);border-bottom-color:var(--ai)}
+.tp{display:none}.tp.on{display:block}
+.note{color:var(--ink-2);font-size:12px}
+.keyrow{display:flex;gap:5px;align-items:center;margin:2px 0}
+.keycap{padding:2px 8px;border:1px solid var(--rule);border-radius:3px;background:#fff;font-size:11px}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:#fff;
+  padding:7px 15px;border-radius:3px;opacity:0;pointer-events:none;transition:opacity .18s;z-index:9}
+#toast.on{opacity:.94}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="shell">
+  <div id="worktabs"></div>
+
+  <div id="bar">
+    <button class="btn" id="b-open">開く</button>
+    <button class="btn" id="b-save">保存</button>
+    <button class="btn" id="b-copy">コピー</button>
+    <button class="btn" id="b-paste">貼り付け</button>
+    <button class="btn" id="b-paste-plain" title="書式なしで貼り付け（Ctrl+Shift+V）">書式なしで貼る</button>
+    <button class="btn" id="b-all">全選択</button>
+    <span class="sep"></span>
+    <span id="boldstate">通常</span>
+    <button class="btn" id="b-mode">記号を表示</button>
+    <span class="sep"></span>
+    <button class="btn" id="b-num">次の番号</button>
+    <button class="btn" id="b-renum">番号を振り直す</button>
+    <span class="sep"></span>
+    <button class="btn" id="b-mark">目印</button>
+    <button class="btn" id="b-find">検索</button>
+    <button class="btn" id="b-speak">読み上げ</button>
+    <button class="btn" id="b-ver">履歴</button>
+    <span class="grow"></span>
+    <span style="color:var(--ink-3);font-size:11px">v2.6</span>
+    <button class="btn" id="b-set">設定</button>
+  </div>
+
+  <div id="fmtbar">
+    <span class="fmt-l">書式</span>
+    <button class="fmtbtn" id="fc-fg" title="文字の色（選んだ範囲）">
+      <span class="fa">A</span><span class="fsw" id="fg-sw"></span><span class="dd">▾</span></button>
+    <button class="fmtbtn" id="fc-bg" title="背景の色（選んだ範囲）">
+      <span class="fb">背</span><span class="fsw" id="bg-sw"></span><span class="dd">▾</span></button>
+    <button class="fmtbtn" id="fc-clear" title="選んだ範囲の色を外す">色を外す</button>
+    <span class="fmt-note">文字を選んでから色を選びます</span>
+  </div>
+
+  <div id="main">
+    <div id="stages"></div>
+    <div class="vsplit" id="sp1"></div>
+
+    <div class="pane">
+      <div class="pane-hd">
+        <span id="ed-title"></span>
+        <span class="grow"></span>
+        <label><input type="checkbox" id="ck-on"> リアルタイムでチェックする</label>
+        <label title="エディタの文字の大きさ（px）">字
+          <input type="number" id="ed-size" min="9" max="34" step="1" style="width:52px"></label>
+        <button class="btn mini" id="b-pause">一時停止</button>
+      </div>
+      <div class="ed guide" id="ed" contenteditable="true" spellcheck="false"></div>
+    </div>
+
+    <div class="vsplit" id="sp2"></div>
+
+    <div id="side">
+      <div id="refbox">
+        <div class="sec-hd">
+          <span>参照</span>
+          <select id="refsel" style="flex:1;min-width:0"></select>
+          <input type="number" id="ref-size" min="9" max="30" step="1" style="width:52px" title="参照の文字の大きさ（px）">
+          <button class="btn mini" id="ref-hide">×</button>
+        </div>
+        <div id="refed" contenteditable="true" spellcheck="false"></div>
+      </div>
+      <div class="hsplit" id="sp3"></div>
+      <div id="sidetabs">
+        <button class="stab on" data-t="chk">チェック</button>
+        <button class="stab" data-t="mark">目印</button>
+        <button class="stab" data-t="out">見出し</button>
+        <button class="stab" data-t="find">検索</button>
+      </div>
+      <div class="sbody on" id="sb-chk"></div>
+      <div class="sbody" id="sb-mark"></div>
+      <div class="sbody" id="sb-out"></div>
+      <div class="sbody" id="sb-find"></div>
+    </div>
+  </div>
+
+  <div id="status"></div>
+</div>
+<div id="toast"></div>
+<input type="file" id="filein" accept=".txt,.json" hidden>
+<script>
+"use strict";
+// ===================== LOGIC START =====================
+
+/* 台本スタジオ 中核ロジック
+ * 既存 Google Apps Script（台本チェッカー／台本エフェクト）からの移植分と、
+ * 生成プロンプトのルールに基づく追加検査。
+ * DOM に依存しない純粋な関数だけをこの区画に置く。 */
+
+/* ---------- 語彙・辞書（GASから移植。設定で編集可） ---------- */
+const DICT = {
+  approved:[
+    'いずれにしても','いずれにせよ','以上のことから','これによって','これにより','それにより',
+    'したがって','というのも','その一方で','それどころか','これを受けて','これを受け','この話を受けて',
+    'その話を聞いた','それを聞いた','これを聞いた','この意見を受けて','この報告を受けて','この事実について',
+    'この問いに対して','この疑問に対しては','その理由として','そんな中','それでも','くわえて',
+    '加えて','さらには','ところが','なんでも','こうして','とはいえ','そのため',
+    'そうして','ただし','ちなみに','しかも','つまり','まず','次に','最後に','そこには','そこで',
+    'すると','そして','しかし','さらに','ただ','なんと','もしも','その後','それから',
+    'これに対して','これに対し','その上','また',
+    'この状況を受けて','この状況によって'
+  ],
+  /* 接続詞に見えるが認めない形。より長い承認語に一致する場合はそちらが優先される */
+  headDeny:['これに','なんという','なんとも','なんとなく','まずは'],
+  headExempt:[
+    'ある日','ある時','この日','翌日','後日','数日後','数か月後','数ヶ月後','この後',
+    '2024','2025','20','ここまで','以上','最後に','冒頭','まず','やがて','まもなく',
+    'こうして','そうして','その後','その日','その頃','この時','この頃','当初','現在'
+  ],
+  fusejiChar:['殺','死','姦','刺','犯','痴','咥','血','亡','遺','呪','監','盗','虐','殴'],
+  fusejiWord:['パワハラ','レイプ','いじめ','首吊り','行為','エロ','グロ','クソ','DV'],
+  kanjiExempt:[
+    '一度','一気','一瞬','一部','一切','一応','一日','一言','一方','一種','一緒',
+    '一生','一目','一見','一同','一連','一律','一様','一斉','一因','一環','一貫','一心',
+    '一晩','一蹴','一旦','一致','一時的',
+    '万一','千載一遇','一石二鳥','穴二つ','二度','三度','四六時中','四季','十字','百科',
+    '数十','数百','数千','数万','何十','何百','何千','何万',
+    '三国志','四国','九州','十字架','千葉','三重','一人前','八百屋','二階','一階','三階',
+    '第一','第二','第三','唯一','万物','億劫','五感','一理','二重','八つ当たり','万','兆','千',
+    '一定','一歩','一員','一部始終','一件','一報','十分','一体'
+  ],
+  /* 常用漢字でないため使わない漢字。語で書いてよい（「貶す」なら「貶」を拾う）。設定で足せる */
+  nonJoyo:['貶す','庇う'],
+  /* 重複・構文崩れの検査で見逃す語（正しい日本語）。設定で足せる */
+  dupAllow:['ののしる','ののしり','ととのえ','ととのう','ととの','もも','はは','ぱぱ','まま','やや',
+            'ますます','いよいよ','だんだん','いろいろ','しばしば','たびたび','ときどき','わざわざ',
+            'ちょっと','そろそろ','なかなか','つぎつぎ','つくづく','したため','したたか','したたる',
+            'こもごも','しみじみ','ひとつひとつ','かわるがわる','ここ','そこ','どこ'],
+  /* 追加で弾きたい言い回し。［形, 理由, 直し方, 点］で書く。設定で足せる */
+  dupExtra:[],
+  /* 同じ語の近接を見逃す語 */
+  dupCommon:['イッチ','スレ','名無し','自分','友人','今回','本当','最初','最後','以上','以下',
+             '写真','画像','言葉','状況','場所','時間','出来事','可能性','必要','結果','原因'],
+  /* 人名・地名など。ここに入れた語の中の漢数字は見逃す。設定で足せる */
+  proper:['三上','四方','五十嵐','一条','千葉','八戸','三重','九十九'],
+  kanjiCaution:['一番','一回','一点']
+};
+
+const ENDINGS = [
+  ['のでした','した'],['ようでした','した'],['でした','した'],['ました','した'],['だった','した'],
+  ['のです','ます/です'],['ようです','ます/です'],['そうです','ます/です'],
+  ['といいます','ます/です'],['ています','ます/です'],['います','ます/です'],
+  ['ます','ます/です'],['です','ます/です'],
+  ['ません','ません'],
+  ['とのこと','とのこと'],
+  ['のだとか','だとか'],['だとか','だとか'],
+  ['という','という'],
+  ['模様','模様'],['様子','様子'],['始末','始末']
+];
+
+const KIND = {
+  ending:{label:'文末音の連続',color:'--hl-ending'},
+  conj:{label:'接続詞',color:'--hl-conj'},
+  punct:{label:'句読点の混入',color:'--hl-punct'},
+  fuseji:{label:'伏字',color:'--hl-fuseji'},
+  kansuji:{label:'漢数字',color:'--hl-kansuji'},
+  kansuji_warn:{label:'数詞注意',color:'--hl-kansuji_warn',sev:'warn'},
+  resnum:{label:'レス番号',color:'--hl-resnum'},
+  suremember:{label:'スレ民たち表記',color:'--hl-suremember'},
+  structure:{label:'スレ構造',color:'--hl-structure'},
+  length:{label:'長さ',color:'--hl-length',sev:'warn'},
+  misc:{label:'その他',color:'--hl-misc'},
+  dup:{label:'重複・構文崩れ',color:'--hl-dup'},
+  joyo:{label:'常用漢字ではありません',color:'--hl-joyo'}
+};
+const KIND_ORDER = ['ending','conj','punct','fuseji','joyo','dup','structure','resnum','length','kansuji','kansuji_warn','suremember','misc'];
+
+/* ---------- 行の解釈 ---------- */
+const RE_HEAD_MARK = /^【[^】]*】/;
+const RE_NUMLINE   = /^(\d+)\s*[.．]\s*(イッチ|名無し)(.*)$/;
+/** 記号つきの行の中の「番号.名前」を書き換える（先頭の ** を跨ぐ） */
+const RE_NUMRAW    = /^(\s*(?:\*\*)?\s*)(\d+)(\s*[.．]\s*)(イッチ|名無し)/;
+function setNumber(raw,n){
+  return String(raw).replace(RE_NUMRAW,(m,pre,old,dot,who)=>pre+n+dot+who);
+}
+const RE_IMG       = /^[（(]\s*※/;
+const RE_ANCHOR    = /^>>(\d+)/;
+
+/** 装飾記号を取り除く（字数計算・内容検査に使う） */
+function strip(s){
+  return String(s||'')
+    .replace(/\{\{(?:fg|bg)=#[0-9a-fA-F]{6}(?:;(?:fg|bg)=#[0-9a-fA-F]{6})?\|/g,'')
+    .replace(/\}\}/g,'')
+    .replace(/\*\*/g,'').replace(/@@/g,'').replace(/\+\+/g,'');
+}
+/** 太字記号を外した中身（@@ ++ は残す） */
+function unbold(s){
+  const t=String(s||'');
+  const m=t.match(/^\s*\*\*([\s\S]*)\*\*\s*$/);
+  return m?m[1]:t.replace(/\*\*/g,'');
+}
+
+function lineType(raw){
+  const t=String(raw||'');
+  const s=t.trim();
+  if(s==='') return 'blank';
+  if(RE_HEAD_MARK.test(s)) return 'head';
+  if(s.startsWith('**')){
+    const in_=strip(s).trim();
+    return RE_IMG.test(in_) ? 'img' : 'thread';
+  }
+  return 'body';
+}
+
+/* ---------- 文字ごとの書式 ----------
+ * 行の中身を1文字ずつ { c, fx, fg, bg } の列に分解し、操作してから記号に戻す。
+ *   fx … 'at'（@@）／'pp'（++）／null
+ *   fg … 文字の色（#rrggbb）／null
+ *   bg … 背景の色（#rrggbb）／null
+ * 色は {{fg=#rrggbb;bg=#rrggbb|文字}} と書く。どちらか片方だけでもよい。 */
+function parseAttrs(s){
+  let fg=null,bg=null,ok=false;
+  String(s||'').split(';').forEach(p=>{
+    const m=p.trim().match(/^(fg|bg)=(#[0-9a-fA-F]{6})$/);
+    if(m){ ok=true; if(m[1]==='fg') fg=m[2].toLowerCase(); else bg=m[2].toLowerCase(); }
+  });
+  return ok?{fg,bg}:null;
+}
+function attrStr(fg,bg){ return [fg?'fg='+fg:'',bg?'bg='+bg:''].filter(Boolean).join(';'); }
+function parseInner(inner){
+  const t=String(inner||''), out=[];
+  let i=0;
+  while(i<t.length){
+    const two=t.substr(i,2);
+    if(two==='@@'||two==='++'){
+      const c=t.indexOf(two,i+2);
+      if(c>i+1){
+        const fx=two==='@@'?'at':'pp';
+        for(let k=i+2;k<c;k++) out.push({c:t[k],fx,fg:null,bg:null});
+        i=c+2; continue;
+      }
+    }
+    if(two==='{{'){
+      const bar=t.indexOf('|',i+2);
+      const end=bar>0?t.indexOf('}}',bar+1):-1;
+      if(bar>i+1&&end>bar){
+        const a=parseAttrs(t.slice(i+2,bar));
+        if(a){
+          for(let k=bar+1;k<end;k++) out.push({c:t[k],fx:null,fg:a.fg,bg:a.bg});
+          i=end+2; continue;
+        }
+      }
+    }
+    out.push({c:t[i],fx:null,fg:null,bg:null}); i++;
+  }
+  return out;
+}
+/** 同じ書式が続くところをひとまとめにする */
+function groupsOf(chars){
+  const g=[];
+  for(const ch of chars){
+    const last=g[g.length-1];
+    if(last&&last.fx===ch.fx&&last.fg===ch.fg&&last.bg===ch.bg) last.t+=ch.c;
+    else g.push({t:ch.c,fx:ch.fx,fg:ch.fg,bg:ch.bg});
+  }
+  return g;
+}
+function serializeInner(chars){
+  return groupsOf(chars).map(g=>{
+    if(g.fx==='at') return '@@'+g.t+'@@';
+    if(g.fx==='pp') return '++'+g.t+'++';
+    if(g.fg||g.bg) return '{{'+attrStr(g.fg,g.bg)+'|'+g.t+'}}';
+    return g.t;
+  }).join('');
+}
+/** 表示位置 a〜b の部分を、書式を保ったまま取り出す */
+function sliceInner(inner,a,b){ return serializeInner(parseInner(inner).slice(a,b)); }
+
+/** 装飾を当てたHTMLを返す。
+ *  mode='marks' … 記号を薄い色で表示する（執筆用）
+ *  mode='plain' … 記号を隠し、ドキュメントと同じ見た目にする（既定）
+ *  効果スパンには data-k を持たせ、ここから記号つきの原文を復元する。 */
+const MK={at:'@@',pp:'++'};
+function decorate(raw,mode){
+  const t=String(raw||'');
+  const plain=(mode!=='marks');
+  const body=plain?unbold(t):t;
+  if(body==='') return '<br>';
+  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  let out='',i=0,any=false;
+  while(i<body.length){
+    const two=body.substr(i,2);
+    if(!plain&&two==='**'){ out+='<span class="mk">**</span>'; i+=2; any=true; continue; }
+    if(two==='@@'||two==='++'){
+      const close=body.indexOf(two,i+2);
+      if(close>i+1){
+        const k=two==='@@'?'at':'pp';
+        const inner=esc(body.slice(i+2,close));
+        out+=plain
+          ? '<span class="'+k+'" data-k="'+k+'">'+inner+'</span>'
+          : '<span class="'+k+'" data-k="'+k+'"><span class="mk">'+two+'</span>'+inner+'<span class="mk">'+two+'</span></span>';
+        i=close+2; any=true; continue;
+      }
+    }
+    if(two==='{{'){
+      const bar=body.indexOf('|',i+2);
+      const end=bar>0?body.indexOf('}}',bar+1):-1;
+      if(bar>i+1&&end>bar){
+        const a=parseAttrs(body.slice(i+2,bar));
+        if(a){
+          const st=(a.fg?'color:'+a.fg+';':'')+(a.bg?'background-color:'+a.bg+';':'');
+          const da=' data-k="cs"'+(a.fg?' data-fg="'+a.fg+'"':'')+(a.bg?' data-bg="'+a.bg+'"':'');
+          const inner=esc(body.slice(bar+1,end));
+          out+=plain
+            ? '<span class="cs"'+da+' style="'+st+'">'+inner+'</span>'
+            : '<span class="cs"'+da+' style="'+st+'"><span class="mk">{{'+esc(body.slice(i+2,bar))+'|</span>'+
+              inner+'<span class="mk">}}</span></span>';
+          i=end+2; any=true; continue;
+        }
+      }
+    }
+    out+=esc(body[i]); i++;
+  }
+  return out===''?'<br>':out;
+}
+/** 行のDOMから記号つきの原文を組み立て直す */
+function rawFromLine(div,mode){
+  if(mode==='marks') return div.textContent;
+  let s='';
+  for(const n of div.childNodes){
+    if(n.nodeType===3){ s+=n.data; continue; }
+    if(n.nodeName==='BR') continue;
+    const k=n.dataset&&n.dataset.k;
+    if(k==='cs'){
+      const tx=n.textContent;
+      if(tx) s+='{{'+attrStr(n.dataset.fg||null,n.dataset.bg||null)+'|'+tx+'}}';
+      continue;
+    }
+    s+=k?MK[k]+n.textContent+MK[k]:n.textContent;
+  }
+  const bold=div.classList.contains('t-thread')||div.classList.contains('t-img');
+  return bold&&s.trim()!==''?'**'+s+'**':s;
+}
+
+/** 記号つき原文を「太字か」「中身」に分ける／組み立てる。
+ *  分割・結合・挿入はすべてこれを通し、** が片側だけ残ることを防ぐ。 */
+function partsOf(raw){
+  const t=String(raw||'');
+  const m=t.match(/^\s*\*\*([\s\S]*)\*\*\s*$/);
+  return m?{bold:true,inner:m[1]}:{bold:false,inner:t.replace(/\*\*/g,'')};
+}
+function buildRaw(bold,inner){
+  if(inner==='') return bold?'':'';
+  return bold?'**'+inner+'**':inner;
+}
+/** 表示上の位置 → 中身（inner）の中の位置 */
+function innerOffset(inner,dispOff,mode){
+  if(mode==='marks') return dispOff;
+  let dd=0,i=0;
+  while(i<inner.length&&dd<dispOff){
+    const two=inner.substr(i,2);
+    if(two==='@@'||two==='++'){
+      const c=inner.indexOf(two,i+2);
+      if(c>i+1){
+        const len=c-i-2;
+        if(dd+len>=dispOff) return i+2+(dispOff-dd);
+        dd+=len; i=c+2; continue;
+      }
+    }
+    dd++; i++;
+  }
+  return i;
+}
+/** 行を表示位置で二つに割る。太字は両側に正しく付け直す */
+function splitRaw(raw,dispOff,mode,keepBold){
+  const p=partsOf(raw);
+  let a,b;
+  if(mode==='marks'){ a=p.inner.slice(0,dispOff); b=p.inner.slice(dispOff); }
+  else{
+    // 書式の途中で割っても、両側に書式が正しく残る
+    const ch=parseInner(p.inner);
+    a=serializeInner(ch.slice(0,dispOff)); b=serializeInner(ch.slice(dispOff));
+  }
+  return [buildRaw(p.bold,a), buildRaw(p.bold&&keepBold!==false,b)];
+}
+/** 二行を繋ぐ。太字は前の行に合わせる */
+function joinRaw(a,b){
+  const pa=partsOf(a), pb=partsOf(b);
+  // 継ぎ目で同じ書式が並んだら、ひとつの区間にまとめる
+  return buildRaw(pa.bold||pb.bold, serializeInner(parseInner(pa.inner+pb.inner)));
+}
+/** 行の途中に文字列を差し込む */
+function insertIntoRaw(raw,dispOff,text,mode){
+  const p=partsOf(raw);
+  if(mode==='marks') return buildRaw(p.bold,p.inner.slice(0,dispOff)+text+p.inner.slice(dispOff));
+  const ch=parseInner(p.inner);
+  ch.splice(dispOff,0,...parseInner(partsOf(text).inner));
+  return buildRaw(p.bold,serializeInner(ch));
+}
+
+/** 表示上の文字列（記号を除いたもの）。40字判定や桁の勘定に使う */
+function shown(raw){ return strip(raw); }
+
+/* ---------- 検出（GAS移植） ---------- */
+const RE_RUBY_INNER = /^[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF々ヶヵ\u30FC]+$/;
+const RE_RUBY_CANDIDATE = /●([\u3040-\u309F\u4E00-\u9FFF々]*)[（(]([^（）()]*)[）)]/g;
+const RE_RUBY_HEAD = /^●([\u3040-\u309F\u4E00-\u9FFF々]*)[（(]([^（）()]*)[）)]/;
+
+function isValidRuby(after,inner){
+  if(!RE_RUBY_INNER.test(inner)) return false;
+  if(inner.length<1||inner.length>8) return false;
+  const om=after.match(/[\u3040-\u309F]+$/);
+  const ok=om?om[0]:'';
+  if(ok.length>0 && inner.slice(-ok.length)!==ok) return false;
+  return true;
+}
+function detectRuby(line){
+  const r=[]; RE_RUBY_CANDIDATE.lastIndex=0; let m;
+  while((m=RE_RUBY_CANDIDATE.exec(line))!==null){ if(isValidRuby(m[1],m[2])) r.push(m[0]); }
+  return r;
+}
+function hasValidRubyAt(line,i){
+  const m=RE_RUBY_HEAD.exec(line.slice(i));
+  return m ? isValidRuby(m[1],m[2]) : false;
+}
+function detectFusejiLeak(line){
+  if(!line) return [];
+  const masked=[];
+  const reParen=/[（(]([^（）()]*)[）)]/g; let pm;
+  while((pm=reParen.exec(line))!==null){
+    for(let c=pm.index;c<pm.index+pm[0].length;c++) masked[c]=true;
+  }
+  for(let i=0;i<line.length;i++) if(line[i]==='●') masked[i]=true;
+  const res=[];
+  for(const word of DICT.fusejiWord){
+    let from=0,idx;
+    while((idx=line.indexOf(word,from))!==-1){
+      let free=false;
+      for(let k=idx;k<idx+word.length;k++) if(!masked[k]){free=true;break;}
+      if(free){ res.push({w:word,pos:idx}); for(let k=idx;k<idx+word.length;k++) masked[k]=true; }
+      from=idx+word.length;
+    }
+  }
+  for(const ch of DICT.fusejiChar){
+    let f=0,id;
+    while((id=line.indexOf(ch,f))!==-1){
+      if(!masked[id]){ res.push({w:ch,pos:id}); masked[id]=true; }
+      f=id+1;
+    }
+  }
+  return res;
+}
+/** 伏字にすべき箇所を実際に伏せる。
+ *  漢字1字 … 死んだ → ●んだ（本文はうしろに読み仮名を添える）
+ *  語     … レイプ → レ●プ（2文字目を伏せる）
+ *  すでに伏せてある箇所や括弧の中には手を出さない。 */
+function applyFuseji(line,isBody){
+  let out=String(line||'');
+  const hits=detectFusejiLeak(out);
+  if(!hits.length) return out;
+  hits.sort((a,b)=>b.pos-a.pos);          // うしろから直す（位置がずれないように）
+  for(const h of hits){
+    const w=h.w, at=h.pos;
+    if(w.length===1){
+      // うしろに続く活用語尾だけを取り込む。助詞まで巻き込まない。
+      const tail=out.slice(at+1);
+      let kana='';
+      const m=tail.match(/^[\u3040-\u309F]{1,4}/);
+      if(m){
+        const OKURI=['くなった','くなって','くなり','んだ','んで','した','して','られた','られて','れた','れて','める','めた','った','って','う','き','く','け','さ','し','ぬ','ね','み','む','り','る','れ'];
+        for(const o of OKURI){ if(m[0].startsWith(o)){ kana=o; break; } }
+      }
+      const orig=w+kana;
+      const rep=isBody ? '●'+kana+'('+orig+')' : '●'+kana;
+      out=out.slice(0,at)+rep+out.slice(at+1+kana.length);
+    }else{
+      // 2文字目を伏せる
+      const rep=w[0]+'●'+w.slice(2);
+      out=out.slice(0,at)+rep+out.slice(at+w.length);
+    }
+  }
+  return out;
+}
+
+function detectKanjiNumbers(line){
+  if(!line) return [];
+  const masked=[];
+  for(const w of DICT.kanjiExempt.concat(DICT.kanjiCaution,DICT.proper||[])){
+    let from=0,idx;
+    while((idx=line.indexOf(w,from))!==-1){
+      for(let c=idx;c<idx+w.length;c++) masked[c]=true;
+      from=idx+w.length;
+    }
+  }
+  const re=/[一二三四五六七八九〇十百千万億兆]/g,res=[]; let m;
+  while((m=re.exec(line))!==null) if(!masked[m.index]) res.push({ch:m[0],pos:m.index});
+  return res;
+}
+function detectKanjiCaution(line){
+  if(!line) return [];
+  const res=[];
+  for(const w of DICT.kanjiCaution){
+    let from=0,idx;
+    while((idx=line.indexOf(w,from))!==-1){ res.push({w,pos:idx}); from=idx+w.length; }
+  }
+  return res;
+}
+function endingClass(line){
+  const l=String(line||'').trim();
+  for(const [suf,cls] of ENDINGS){
+    if(l.length>=suf.length && l.slice(-suf.length)===suf) return cls;
+  }
+  return null;
+}
+const snip=(s,n)=>{s=String(s||'').trim();return s.length>n?s.slice(0,n)+'…':s};
+
+/* ---------- 常用漢字ではない漢字 ---------- */
+/** 許可外リストの語から漢字だけを取り出し、行の中に現れた箇所を返す。
+ *  「貶す」と登録すれば「貶され」「貶めた」も拾う。 */
+function detectNonJoyo(line){
+  const s=String(line||'');
+  if(!s) return [];
+  const map=new Map();                         // 漢字 → 登録した語
+  for(const w of (DICT.nonJoyo||[])){
+    for(const ch of String(w)){
+      if(/[\u4E00-\u9FFF々]/.test(ch)&&!map.has(ch)) map.set(ch,w);
+    }
+  }
+  if(!map.size) return [];
+  const out=[];
+  for(let i=0;i<s.length;i++){
+    const w=map.get(s[i]);
+    if(w) out.push({at:i,ch:s[i],word:w});
+  }
+  return out;
+}
+
+/* ---------- 重複・構文崩れ ---------- */
+/* 文字が並んでいるだけで咎めない。
+ * 複数の手掛かりに点を付け、合計が足りたものだけを出す。
+ *   3点以上 … エラー
+ *   2点     … 注意
+ *   1点以下 … 出さない
+ * 例外は DICT.dupAllow / DICT.dupCommon、
+ * 追加の言い回しは DICT.dupExtra に置く（設定から足せる）。 */
+
+const DUP_PARTICLES='がをにのはもとでへや';
+
+/** 助詞・助動詞のつながりとして明らかにおかしい形。
+ *  ［形, 理由, 直し方, 点］。正規表現でも書ける。 */
+const DUP_JOINS=[
+  ['についてを','「について」と「を」が重なっています','「について」だけにする',3],
+  ['についてが','「について」と「が」が重なっています','「については」にする',3],
+  ['においてを','「において」と「を」が重なっています','「において」だけにする',3],
+  ['にとってを','「にとって」と「を」が重なっています','「にとって」だけにする',3],
+  ['によってを','「によって」と「を」が重なっています','「によって」だけにする',3],
+  ['ていくする','「ていく」と「する」が重なっています','「ていく」だけにする',3],
+  ['てくるする','「てくる」と「する」が重なっています','「てくる」だけにする',3],
+  ['てしまうする','「てしまう」と「する」が重なっています','「てしまう」だけにする',3],
+  ['ているする','「ている」と「する」が重なっています','「ている」だけにする',3],
+  ['するする','「する」が重なっています','ひとつにする',3],
+  ['したする','「した」と「する」が重なっています','どちらかにする',3],
+  ['されるする','「される」と「する」が重なっています','「される」だけにする',3],
+  ['できるする','「できる」と「する」が重なっています','「できる」だけにする',3],
+  ['ますです','「ます」と「です」が重なっています','どちらかにする',3],
+  ['ですます','「です」と「ます」が重なっています','どちらかにする',3],
+  [/(だっ|かっ|まし|でし)たた(?![めきかくる])/,'「た」が重なっています','「た」をひとつにする',3],
+  [/てい(た|る)\1(?![らりるれろ])/,'「ていた」「ている」の活用が重なっています','ひとつにする',3],
+  [/という(という|いう)/,'「という」が重なっています','ひとつにする',3],
+  [/(てきた|ていた|ている)(てきた|ていた|ている)/,'補助動詞が重なっています','ひとつにする',3],
+  [/(のです|んです)(のです|んです)/,'文末が重なっています','ひとつにする',3],
+  [/(とのこと|模様|様子)(とのこと|模様|様子)/,'文末が重なっています','ひとつにする',3]
+];
+
+/** いくつかの言い方が混ざったとみられる形 */
+const DUP_MIX=[
+  ['これにせいで','「これにより」と「そのせいで」が混ざっています','「これにより」か「そのせいで」にする',3],
+  ['これによりで','「これにより」が崩れています','「これにより」にする',3],
+  ['それにせいで','「それにより」と「そのせいで」が混ざっています','どちらかにする',3],
+  ['なのでので','「ので」が重なっています','ひとつにする',3],
+  ['だからので','「だから」と「ので」が重なっています','どちらかにする',3],
+  ['ためにので','「ために」と「ので」が重なっています','どちらかにする',3],
+  ['にもかかわらずが','「にもかかわらず」と「が」が重なっています','「にもかかわらず」だけにする',3],
+  ['ことがことが','「ことが」が重なっています','ひとつにする',3],
+  ['ものをものを','「ものを」が重なっています','ひとつにする',3],
+  [/が(すべて|全て|みんな|皆|全部|どれ|それ|これ|どちら)が/,'主語の「が」が重なっています','うしろの「が」を外す',3],
+  [/を(すべて|全て|全部)を/,'「を」が重なっています','うしろの「を」を外す',3],
+  [/(について|に関して)(について|に関して)/,'同じ言い方が重なっています','ひとつにする',3]
+];
+
+/** 同じ助詞が並んでいないか。正しい言葉は DICT.dupAllow で避ける。 */
+function dupParticles(line){
+  const out=[];
+  for(let i=0;i+1<line.length;i++){
+    const c=line[i];
+    if(c!==line[i+1]) continue;
+    if(DUP_PARTICLES.indexOf(c)<0) continue;
+    const around=line.slice(Math.max(0,i-3),i+5);
+    if((DICT.dupAllow||[]).some(w=>w.length>1&&around.includes(w))) continue;
+    // うしろにひらがなが続く場合は別の語の一部であることが多い。
+    // ただし助詞が続く形（ののから、など）は残す。
+    const rest=line.slice(i+2);
+    if(/^[\u3040-\u309F]/.test(rest)&&!/^(から|まで|より|ほど|など|こそ|さえ|しか|は|が|を|に|も)/.test(rest)) continue;
+    out.push({at:i,text:c+c,why:'助詞「'+c+'」が重なっています',
+      fix:'「'+line.slice(Math.max(0,i-5),i)+c+line.slice(i+2,i+7)+'」',score:3});
+  }
+  return out;
+}
+
+/** 同じ語が近くで繰り返されていないか */
+function dupNear(line,span){
+  const out=[];
+  const re=/[\u4E00-\u9FFF々]{2,}|[\u30A0-\u30FF\u30FC]{3,}/g;
+  const seen=new Map(); let m;
+  while((m=re.exec(line))!==null){
+    const w=m[0];
+    if((DICT.dupCommon||[]).includes(w)) continue;
+    if(seen.has(w)){
+      const prev=seen.get(w);
+      if(m.index-prev<=(span||14)){
+        out.push({at:m.index,text:w,why:'「'+w+'」が近くで繰り返されています',
+          fix:'どちらかを別の言い方にする',score:2});
+      }
+    }
+    seen.set(w,m.index);
+  }
+  return out;
+}
+
+/** 行の中の重複・構文崩れを拾う */
+function detectDup(line){
+  const s=String(line||'');
+  if(!s.trim()) return [];
+  const found=[];
+  const push=(at,text,why,fix,score)=>{
+    const around=s.slice(Math.max(0,at-3),at+String(text).length+3);
+    if((DICT.dupAllow||[]).some(w=>w.length>1&&around.includes(w))) return;
+    found.push({at,text,why,fix,score});
+  };
+  const scan=list=>{
+    for(const row of (list||[])){
+      const pat=row[0], why=row[1], fix=row[2], score=row[3]||3;
+      if(pat instanceof RegExp){
+        const re=new RegExp(pat.source,pat.flags.includes('g')?pat.flags:pat.flags+'g');
+        let m;
+        while((m=re.exec(s))!==null){
+          push(m.index,m[0],why,fix,score);
+          if(m.index===re.lastIndex) re.lastIndex++;
+        }
+      }else if(typeof pat==='string'&&pat){
+        let from=0,at;
+        while((at=s.indexOf(pat,from))!==-1){ push(at,pat,why,fix,score); from=at+pat.length; }
+      }
+    }
+  };
+  scan(DUP_JOINS); scan(DUP_MIX); scan(DICT.dupExtra);
+  dupNear(s).forEach(r=>push(r.at,r.text,r.why,r.fix,r.score));
+
+  // 近い場所で複数当たったものは点を足す
+  const byPos=new Map();
+  found.forEach(f=>{
+    const k=Math.floor(f.at/4);
+    const cur=byPos.get(k);
+    if(!cur) byPos.set(k,Object.assign({},f));
+    else{
+      cur.score+=f.score;
+      if(f.score>=3&&cur.score-f.score<3){ cur.why=f.why; cur.fix=f.fix; cur.text=f.text; cur.at=f.at; }
+    }
+  });
+  return [...byPos.values()].filter(f=>f.score>=2).sort((a,b)=>a.at-b.at);
+}
+
+/* ---------- 日付・時間の読み取り ---------- */
+function metaOf(raw){
+  const at=raw.match(/@@([^@]*)@@/);
+  const pp=raw.match(/\+\+([^+]*)\+\+/);
+  const meta={date:null,elapsedH:null};
+  if(at){
+    const d=at[1].match(/(\d{4})\s*[\/年]\s*(\d{1,2})\s*[\/月]\s*(\d{1,2})/);
+    if(d) meta.date=new Date(+d[1],+d[2]-1,+d[3]);
+  }
+  const src=(pp?pp[1]:'')+(at?at[1]:'');
+  const h=src.match(/(\d+)\s*時間後/);
+  if(h) meta.elapsedH=+h[1];
+  const mi=src.match(/(\d+)\s*分後/);
+  if(mi&&meta.elapsedH===null) meta.elapsedH=(+mi[1])/60;
+  return meta;
+}
+/** 前後の番号行から、あるべき飛ばし幅の範囲を返す */
+function gapRange(prevMeta,curMeta,cfg){
+  const g=cfg&&cfg.gap?cfg.gap:{normal:[3,10],hours:[10,20],nextday:[30,50],days:[50,100]};
+  if(prevMeta&&curMeta&&prevMeta.date&&curMeta.date){
+    const d=Math.round((curMeta.date-prevMeta.date)/86400000);
+    if(d>=2) return {range:g.days,why:'数日後'};
+    if(d===1) return {range:g.nextday,why:'翌日'};
+  }
+  if(curMeta&&curMeta.elapsedH!==null&&curMeta.elapsedH>=1) return {range:g.hours,why:'1〜3時間後'};
+  return {range:g.normal,why:'通常'};
+}
+const pick=([a,b])=>a+Math.floor(Math.random()*(b-a+1));
+/** 重みつきで選ぶ。weights は {3:5, 4:3, ...} の形。
+ *  指定が無い数は重み1として扱う。すべて0なら均等に選ぶ。 */
+function pickWeighted(range,weights){
+  const [a,b]=range;
+  if(!weights) return pick(range);
+  const vals=[],ws=[];
+  let total=0;
+  for(let n=a;n<=b;n++){
+    const w=Math.max(0,Number(weights[n]!=null?weights[n]:1)||0);
+    vals.push(n); ws.push(w); total+=w;
+  }
+  if(total<=0) return pick(range);
+  let r=Math.random()*total;
+  for(let i=0;i<vals.length;i++){ r-=ws[i]; if(r<=0) return vals[i]; }
+  return vals[vals.length-1];
+}
+
+/* ---------- 本編の走査 ---------- */
+/** 行配列から、検査対象の範囲と構造を組み立てる */
+function analyze(lines){
+  const L=lines.map((raw,i)=>{
+    const type=lineType(raw);
+    return {i,raw,type,inner:strip(raw).trim()};
+  });
+  // 検査範囲：【本編】の次〜【締め】の手前
+  let from=0,to=L.length;
+  const bi=L.findIndex(l=>l.type==='head'&&l.raw.includes('【本編】'));
+  if(bi>=0) from=bi+1;
+  const ei=L.findIndex((l,i)=>i>from&&l.type==='head'&&l.raw.includes('【締め】'));
+  if(ei>=0) to=ei;
+  const scope=L.slice(from,to);
+
+  // 本文ブロック（空行・スレ・見出しで区切る）
+  const bodyBlocks=[]; let cur=null;
+  for(const l of scope){
+    if(l.type==='body'){ if(!cur){cur={lines:[]};bodyBlocks.push(cur);} cur.lines.push(l); }
+    else cur=null;
+  }
+  // スレブロック（連続する太字＝1投稿）
+  const threadBlocks=[]; let tb=null;
+  for(const l of scope){
+    if(l.type==='thread'||l.type==='img'){ if(!tb){tb={lines:[],img:l.type==='img'};threadBlocks.push(tb);} tb.lines.push(l); }
+    else tb=null;
+  }
+  threadBlocks.forEach(b=>{
+    b.head=b.lines[0];
+    const m=b.head.inner.match(RE_NUMLINE);
+    b.num=m?+m[1]:null;
+    b.who=m?m[2]:null;
+    b.meta=metaOf(b.head.raw);
+  });
+  return {all:L,scope,from,to,bodyBlocks,threadBlocks};
+}
+
+/* ---------- 検査本体 ---------- */
+function check(lines,cfg){
+  cfg=Object.assign({jumpHint:10},cfg||{});
+  const hits=[];
+  const A=analyze(lines);
+  const add=(i,kind,msg,sev)=>hits.push({i,kind,msg,sev:sev||KIND[kind].sev||'err'});
+
+  /* --- 記号の閉じ忘れ（全行） --- */
+  A.all.forEach(l=>{
+    if(l.type==='blank'||l.type==='head') return;
+    const cnt=(s,p)=>(l.raw.split(p).length-1);
+    if(cnt(l.raw,'**')%2!==0) add(l.i,'misc','「**」が閉じていません');
+    if(cnt(l.raw,'@@')%2!==0) add(l.i,'misc','「@@」が閉じていません');
+    if(cnt(l.raw,'++')%2!==0) add(l.i,'misc','「++」が閉じていません');
+    if(cnt(l.raw,'{{')!==cnt(l.raw,'}}')) add(l.i,'misc','色の記号「{{ }}」が閉じていません');
+    if(l.type==='body'&&/\*\*/.test(l.raw)) add(l.i,'misc','本文の途中に「**」があります（太字は行ごとに閉じます）');
+  });
+
+  /* --- 本文：文末音 --- */
+  let prevCls=null;
+  A.bodyBlocks.forEach(b=>{
+    const last=b.lines[b.lines.length-1];
+    const cls=endingClass(last.inner);
+    if(!cls&&last.inner!==''){
+      add(last.i,'ending','文末音が不明です（体言止め・口語の可能性）→「'+snip(last.inner,16)+'」');
+    }
+    if(cls&&prevCls&&cls===prevCls){
+      add(last.i,'ending','文末音の連続 ['+cls+']：前のブロックと同じ音で終わっています');
+    }
+    prevCls=cls;
+  });
+
+  /* --- 本文：接続詞 --- */
+  let prevConj=null;
+  const approved=DICT.approved.slice().sort((a,b)=>b.length-a.length);
+  A.bodyBlocks.forEach(b=>{
+    const head=b.lines[0], h=head.inner;
+    let hit=null;
+    for(const w of approved){ if(h.startsWith(w)){hit=w;break;} }
+    let denied=null;
+    for(const dw of DICT.headDeny){
+      if(h.startsWith(dw)&&(!hit||hit.length<=dw.length)){denied=dw;break;}
+    }
+    if(denied){
+      add(head.i,'conj','「'+denied+'」は単独では使えません（「'+denied+'対して」などの形に）→「'+snip(h,16)+'」');
+      hit=null;
+    }
+    if(!hit&&!denied){
+      let ex=h.startsWith('「');
+      if(!ex) for(const w of DICT.headExempt){ if(h.startsWith(w)){ex=true;break;} }
+      if(!ex) add(head.i,'conj','文頭が接続詞ではありません→「'+snip(h,16)+'」');
+    }
+    if(hit&&prevConj&&hit===prevConj){
+      add(head.i,'conj','接続詞の連続 ['+hit+']：前のブロックと同じ語で始まっています');
+    }
+    prevConj=hit;
+  });
+
+  /* --- 本文：行ごとの内容 --- */
+  A.bodyBlocks.forEach(b=>{
+    b.lines.forEach(l=>{
+      const line=l.inner;
+      const st=line.replace(/「[^」]*」/g,'');
+      if(st.includes('、')||st.includes('。')) add(l.i,'punct','句読点が入っています：'+snip(line,40));
+      if(line.includes('話すところによると')||line.includes('話すところによれば'))
+        add(l.i,'misc','「話したところによると」に：'+snip(line,40));
+      for(let k=0;k<line.length;k++){
+        if(line[k]==='●'&&!hasValidRubyAt(line,k)){
+          add(l.i,'fuseji','本文の伏字に読み仮名（）がありません：'+snip(line,40)); break;
+        }
+      }
+      const lk=detectFusejiLeak(line);
+      if(lk.length) add(l.i,'fuseji','伏字漏れ ['+lk.map(x=>x.w).join('・')+']：'+snip(line,40));
+      if(line.includes('●●')) add(l.i,'fuseji','●が連続しています：'+snip(line,40));
+      const kn=detectKanjiNumbers(line);
+      if(kn.length) add(l.i,'kansuji','漢数字 ['+kn.map(x=>x.ch).join('・')+']（半角数字に）：'+snip(line,40));
+      const kc=detectKanjiCaution(line);
+      if(kc.length) add(l.i,'kansuji_warn','要確認の数詞 ['+kc.map(x=>x.w).join('・')+']：'+snip(line,40));
+      // 1行40字
+      const n=line.length;
+      if(n>40) add(l.i,'length','1行が'+n+'字です（40字以下に）', n>48?'err':'warn');
+      detectDup(line).forEach(f=>{
+        add(l.i,'dup',f.why+'：…'+snip(line.slice(Math.max(0,f.at-8)),26)+
+          (f.fix?'　→ '+f.fix:''), f.score>=3?'err':'warn');
+      });
+      {
+        const nj=detectNonJoyo(line);
+        if(nj.length){
+          const chs=[...new Set(nj.map(x=>x.ch))];
+          add(l.i,'joyo','常用漢字ではありません ['+chs.join('・')+']：…'+
+            snip(line.slice(Math.max(0,nj[0].at-6)),24)+'　→ ひらがなにするか言い換える');
+        }
+      }
+    });
+    // ブロックの行数
+    const n=b.lines.length;
+    if(n>=7) add(b.lines[0].i,'length','本文ブロックが'+n+'行です（7行以上）','err');
+    else if(n>=4) add(b.lines[0].i,'length','本文ブロックが'+n+'行です（1〜3行が標準。4〜6行は例外）','info');
+  });
+
+  /* --- スレ：内容 --- */
+  A.threadBlocks.forEach(b=>{
+    const s=b.head.inner;
+    const ok=RE_NUMLINE.test(s)||RE_IMG.test(s)||RE_ANCHOR.test(s);
+    if(!ok) add(b.head.i,'resnum','スレ投稿が番号行・画像注釈で始まっていません→「'+snip(s,16)+'」');
+    if(b.num!==null){
+      const rest=s.match(RE_NUMLINE)[3].trim();
+      if(rest&&!/^(20\d\d|※|\d+時)/.test(rest)&&!/時～|時〜/.test(rest))
+        add(b.head.i,'resnum','番号行に本文が続いています（改行を）：'+snip(s,40));
+    }
+    b.lines.forEach(l=>{
+      const line=l.inner;
+      const lk=detectFusejiLeak(line);
+      if(lk.length) add(l.i,'fuseji','伏字漏れ ['+lk.map(x=>x.w).join('・')+']：'+snip(line,40));
+      detectRuby(line).forEach(r=>add(l.i,'fuseji','スレに不要な読み仮名：'+r));
+      const body=line.replace(RE_NUMLINE,'');
+      const kn=detectKanjiNumbers(body);
+      if(kn.length) add(l.i,'kansuji','スレに漢数字 ['+kn.map(x=>x.ch).join('・')+']：'+snip(line,40));
+      const kc=detectKanjiCaution(body);
+      if(kc.length) add(l.i,'kansuji_warn','スレに要確認の数詞 ['+kc.map(x=>x.w).join('・')+']：'+snip(line,40));
+      {
+        const nj=detectNonJoyo(body);
+        if(nj.length){
+          const chs=[...new Set(nj.map(x=>x.ch))];
+          add(l.i,'joyo','常用漢字ではありません ['+chs.join('・')+']：…'+
+            snip(body.slice(Math.max(0,nj[0].at-6)),24)+'　→ ひらがなにするか言い換える');
+        }
+      }
+      detectDup(body).forEach(f=>{
+        if(f.score<3) return;
+        add(l.i,'dup',f.why+'：…'+snip(body.slice(Math.max(0,f.at-8)),26)+
+          (f.fix?'　→ '+f.fix:''),'err');
+      });
+    });
+  });
+
+  /* --- レス番号：昇順・重複・突出・飛ばし幅・1000 --- */
+  const nums=A.threadBlocks.filter(b=>b.num!==null);
+  let base=null,prevB=null,warnedNear=false,warnedOver=false,lastDatedMeta=null;
+  nums.forEach((b,k)=>{
+    const cur=b.num;
+    if(cur===1){ base=1; prevB=b; return; }
+    if(base===null){ base=cur; prevB=b; return; }
+    if(cur>base){
+      const nxt=nums[k+1]?nums[k+1].num:null;
+      if(nxt!==null&&nxt!==1&&cur>nxt&&nxt>base){
+        add(b.head.i,'resnum','レス番号が突出しています：'+cur+'（前後の '+base+' → '+nxt+' から外れています）');
+      }else{
+        // 飛ばし幅は「時間が動いた箇所」だけを見る。
+        // 連続する投稿の +1〜+数 は通常の会話の流れなので対象にしない。
+        const gap=cur-base;
+        const gr=gapRange((b.meta&&b.meta.date&&lastDatedMeta)?lastDatedMeta:(prevB?prevB.meta:null),b.meta,cfg);
+        const timed=(gr.why!=='通常');
+        if(timed&&gap<gr.range[0]){
+          add(b.head.i,'resnum',gr.why+'なのに飛ばし幅が'+gap+'です（'+gr.range[0]+'〜'+gr.range[1]+'に）');
+        }else if(!timed&&gap>cfg.jumpHint){
+          add(b.head.i,'resnum','番号が'+gap+'飛んでいます。時間が動いたなら @@日付@@ か ++※N時間後++ を入れてください','warn');
+        }
+      }
+      base=cur; prevB=b;
+    }else{
+      add(b.head.i,'resnum','レス番号異常：'+base+' の後に '+cur+' が出ています（昇順でない／重複）');
+      prevB=b;
+    }
+    if(b.meta&&b.meta.date) lastDatedMeta=b.meta;
+    if(cur>1000&&!warnedOver){ warnedOver=true;
+      add(b.head.i,'resnum','1000番を超えています。新しいスレに移ってください'); }
+    else if(cur>=880&&!warnedNear){ warnedNear=true;
+      add(b.head.i,'resnum','1000番が近づいています（現在'+cur+'番）。移行の準備を','warn'); }
+  });
+  // 1〜8は連番
+  const small=nums.filter(b=>b.num<=8).map(b=>b.num);
+  for(let k=1;k<small.length;k++){
+    if(small[k]!==small[k-1]+1){
+      const b=nums.find(x=>x.num===small[k]);
+      if(b) add(b.head.i,'resnum','1〜8は連番にしてください（'+small[k-1]+' → '+small[k]+'）');
+    }
+  }
+  // 日付ベースの新スレ判定
+  const dated=nums.filter(b=>b.meta.date);
+  for(let k=1;k<dated.length;k++){
+    if(dated[k].num<dated[k-1].num) continue;
+    const days=Math.round((dated[k].meta.date-dated[k-1].meta.date)/86400000);
+    if(days>=60) add(dated[k].head.i,'structure',Math.round(days/30)+'か月ほど経過しています。新しいスレを立て直してください（必須）');
+    else if(days>=30) add(dated[k].head.i,'structure',days+'日経過しています。新しいスレの検討を（推奨）');
+  }
+
+  /* --- アンカー --- */
+  const exist=new Set(nums.map(b=>b.num));
+  A.scope.forEach((l,k)=>{
+    if(l.type!=='thread') return;
+    const m=l.inner.match(RE_ANCHOR);
+    if(!m) return;
+    if(!exist.has(+m[1])) add(l.i,'resnum','>>'+m[1]+' は本編に存在しない番号です');
+    if(l.inner.replace(RE_ANCHOR,'').trim()!=='')
+      add(l.i,'resnum','アンカーの後は改行してください：'+snip(l.inner,40));
+  });
+
+  /* --- スレ構造 --- */
+  const seq=[];
+  A.scope.forEach(l=>{
+    if(l.type==='body') seq.push({k:'body',l});
+    else if(l.type==='thread'||l.type==='img'){
+      const prev=seq[seq.length-1];
+      const who=l.type==='img'?'img':(l.inner.match(RE_NUMLINE)?l.inner.match(RE_NUMLINE)[2]:null);
+      if(prev&&prev.k==='post'&&who===null) return; // 投稿の続きの行
+      if(who!==null) seq.push({k:'post',who,l});
+    }
+  });
+  const posts=[];
+  seq.forEach((s,k)=>{ if(s.k==='post') posts.push({...s,at:k}); });
+  for(let k=0;k<posts.length;k++){
+    const p=posts[k];
+    if(p.who!=='イッチ') continue;
+    const before=seq[p.at-1], after=seq[p.at+1];
+    if(before&&before.k==='post'&&before.who!=='img')
+      add(p.l.i,'structure','イッチの直前に本文がありません（イッチの前後には本文を挟みます）');
+    if(after&&after.k==='post'&&after.who!=='img')
+      add(p.l.i,'structure','イッチの直後に本文がありません（イッチの前後には本文を挟みます）');
+    const nx=posts[k+1];
+    if(nx&&nx.who==='イッチ'&&nx.at===p.at+1)
+      add(nx.l.i,'structure','イッチが連続で投稿しています（1回にまとめます）');
+  }
+  let run=0,runStart=null;
+  seq.forEach(s=>{
+    if(s.k==='post'&&s.who==='名無し'){ if(run===0)runStart=s; run++;
+      if(run===7) add(s.l.i,'structure','スレ民の投稿が7件以上続いています（6件まで）');
+    } else if(s.k!=='post'||s.who!=='img'){ run=0; }
+  });
+
+  /* --- スレ民／スレ民たち --- */
+  let sureRun=0;
+  A.scope.forEach((l,k,arr)=>{});
+  {
+    let i=0;
+    const sc=A.scope;
+    while(i<sc.length){
+      const l=sc[i];
+      if(l.type==='blank'||l.type==='head'){ i++; continue; }
+      if(l.type==='thread'||l.type==='img'){
+        const isImg=l.type==='img';
+        const start=i;
+        while(i<sc.length&&(sc[i].type==='thread'||sc[i].type==='img')) i++;
+        if(!isImg) sureRun++;
+        continue;
+      }
+      let txt='',first=l.i;
+      while(i<sc.length&&sc[i].type==='body'){ txt+=sc[i].inner; i++; }
+      if(txt.includes('スレ民')){
+        const stripped=txt.replace(/スレ民たち/g,'');
+        if(sureRun>=2&&stripped.includes('スレ民'))
+          add(first,'suremember','直前のスレ投稿が'+sureRun+'件続くため「スレ民たち」が適切です');
+        if(sureRun===1&&txt.includes('スレ民たち'))
+          add(first,'suremember','直前のスレ投稿が1件のため「スレ民」（単数）が適切です');
+      }
+      sureRun=0;
+    }
+  }
+
+  /* --- 空行の連続 --- */
+  {
+    let run=0,start=-1;
+    for(let k=A.from;k<A.to;k++){
+      if(String(lines[k]||'').trim()===''){ if(run===0) start=k; run++; }
+      else{ if(run>=2) add(start,'length','空行が'+run+'行続いています（1行にしてください）'); run=0; }
+    }
+    if(run>=2) add(start,'length','空行が'+run+'行続いています（1行にしてください）');
+  }
+
+  /* --- 次回予告 --- */
+  const ni=lines.findIndex(s=>/ここから次回予告/.test(s));
+  if(ni>=0){
+    for(let k=ni+1;k<lines.length;k++){
+      const s=strip(lines[k]).trim();
+      if(!s) continue;
+      const m=s.match(/^(\d+)\s*[:：]\s*(.*)$/);
+      const val=m?m[2].trim():s;
+      if(/^画像$/.test(val)||/^次回/.test(val)) continue;
+      const lk=detectFusejiLeak(val);
+      if(lk.length) add(k,'fuseji','次回予告に伏字対象 ['+lk.map(x=>x.w).join('・')+']：'+snip(val,30));
+      const parts=val.split('／');
+      parts.forEach(p=>{ if(p.trim().length>8) add(k,'length','次回予告は8文字以内です（'+p.trim().length+'字）：'+snip(p,20)); });
+      const am=val.match(/^>>(\d+)/);
+      if(am&&!exist.has(+am[1])) add(k,'resnum','次回予告の >>'+am[1]+' は本編に存在しません');
+    }
+  }
+
+  const SEV={err:0,warn:1,info:2};
+  hits.sort((a,b)=>SEV[a.sev]-SEV[b.sev]||a.i-b.i||KIND_ORDER.indexOf(a.kind)-KIND_ORDER.indexOf(b.kind));
+  return hits;
+}
+
+/* ---------- 字数 ---------- */
+function countChars(lines){
+  const ni=lines.findIndex(s=>/ここから次回予告/.test(s));
+  const use=ni>=0?lines.slice(0,ni):lines;
+  let n=0;
+  for(const raw of use){
+    if(lineType(raw)==='head') continue;
+    n+=strip(raw).replace(/[\s\u3000]/g,'').length;
+  }
+  return n;
+}
+
+/* ---------- レス番号の振り直し ---------- */
+function renumber(lines,cfg){
+  const A=analyze(lines);
+  const blocks=A.threadBlocks.filter(b=>b.num!==null);
+  const map=new Map();      // 旧番号 → 新番号
+  const plan=[];
+  let cur=0,prevMeta=null,overflow=null;
+  blocks.forEach((b,k)=>{
+    let next;
+    if(cur===0) next=1;
+    else if(cur<8) next=cur+1;                       // 1〜8は連番
+    else{
+      const gr=gapRange(prevMeta,b.meta,cfg);
+      next=cur+pick(gr.range);
+    }
+    if(next>1000&&!overflow) overflow={at:b.head.i,prev:cur,next};
+    map.set(b.num,next);
+    plan.push({i:b.head.i,from:b.num,to:next,who:b.who});
+    cur=next; prevMeta=b.meta;
+  });
+  if(overflow) return {ok:false,overflow,plan};
+
+  const out=lines.slice();
+  blocks.forEach(b=>{
+    out[b.head.i]=out[b.head.i].replace(RE_NUMLINE, (mm,n,who,rest)=>map.get(+n)+'.'+who+rest);
+    // 太字記号の内側で置換されるよう、記号ごと保持した形で再構成
+  });
+  // アンカーの追従
+  for(let i=0;i<out.length;i++){
+    out[i]=out[i].replace(/>>(\d+)/g,(mm,n)=>map.has(+n)?'>>'+map.get(+n):mm);
+  }
+  return {ok:true,lines:out,plan};
+}
+
+/* ---------- 読み上げ用テキスト ---------- */
+const SPEAK_SUB=[
+  [/ｗ+/g,''],[/w{2,}/g,''],[/^草$/,'くさ'],
+  [/ｷﾀ[ー―\-]+\([^)]*\)[ー―\-]+!*/g,'キター'],
+  [/\([^)]*[ﾟ°Д´ω・∀][^)]*\)/g,''],
+  [/>>(\d+)/g,'$1番へ、'],
+];
+function speakText(raw,opt){
+  opt=opt||{};
+  let s=strip(raw);
+  // 読み方の辞書（先に長い語から当てる）
+  if(opt.dict&&opt.dict.length){
+    for(const [from,to] of opt.dict){ if(from) s=s.split(from).join(to); }
+  }
+  s=s.replace(/●([\u3040-\u309F\u4E00-\u9FFF々]*)[（(]([^（）()]*)[）)]/g,'$2');
+  s=s.replace(/●/g,'');
+  if(opt.readNum!==false) s=s.replace(RE_NUMLINE,(m,n,who)=>n+'番、'+who+'。');
+  else s=s.replace(RE_NUMLINE,'');
+  for(const [re,to] of SPEAK_SUB) s=s.replace(re,to);
+  s=s.replace(/[\u3000\s]+/g,' ').trim();
+  return s;
+}
+function speakQueue(lines,mode,dict){
+  const q=[];
+  const d=(dict||[]).slice().sort((a,b)=>String(b[0]).length-String(a[0]).length);
+  lines.forEach((raw,i)=>{
+    const t=lineType(raw);
+    if(t==='blank'||t==='head') return;
+    if(t==='img') return;
+    if(mode==='body'&&t!=='body') return;
+    if(mode==='thread'&&t==='body') return;
+    const s=speakText(raw,{readNum:mode!=='body',dict:d});
+    if(s) q.push({i,text:s,type:t});
+  });
+  return q;
+}
+
+/* ---------- 貼り付けの解釈 ---------- */
+/** Googleドキュメント等のHTMLから ** @@ ++ を組み立て直す。
+ *  ドキュメントは全体を <b style="font-weight:normal"> で包むため、
+ *  祖先に B があるかではなく「最も近い明示的な太さ」で判定する。 */
+function boldOf(node,root){
+  let el=node.nodeType===1?node:node.parentElement;
+  while(el&&el!==root&&el.nodeType===1){
+    const w=(el.style&&el.style.fontWeight)||'';
+    if(w){
+      if(w==='normal'||w==='lighter') return false;
+      if(w==='bold'||w==='bolder') return true;
+      const n=parseInt(w,10);
+      if(!isNaN(n)) return n>=600;
+    }
+    if(el.tagName==='B'||el.tagName==='STRONG') return true;
+    el=el.parentElement;
+  }
+  return false;
+}
+function styleOf(node,root,prop){
+  let el=node.nodeType===1?node:node.parentElement;
+  while(el&&el!==root&&el.nodeType===1){
+    const v=el.style&&el.style[prop];
+    if(v) return v;
+    el=el.parentElement;
+  }
+  return '';
+}
+function htmlToScript(html){
+  const doc=new DOMParser().parseFromString(html,'text/html');
+  const root=doc.body;
+  const norm=c=>{
+    c=String(c||'').trim().toLowerCase();
+    const a=c.match(/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/);
+    if(a&&+a[1]===0) return 'transparent';
+    const m=c.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if(m) return '#'+[m[1],m[2],m[3]].map(x=>(+x).toString(16).padStart(2,'0')).join('');
+    if(/^#[0-9a-f]{3}$/.test(c)) return '#'+c[1]+c[1]+c[2]+c[2]+c[3]+c[3];
+    return c;
+  };
+  const BGS=new Set(['#ffff00',norm(FX.atBg),norm(FX.ppBg)]);
+  const FGS=new Set(['#ff0000',norm(FX.ppFg)]);
+  const isYellow=c=>BGS.has(norm(c));
+  const isRed=c=>FGS.has(norm(c));
+  const BLOCK='p,div,li,h1,h2,h3,h4,h5,h6,tr';
+  // 文書の並び順で、末端の段落と「段落の外に置かれた <br>」を拾う
+  // <br> は、段落の中にあれば行内の改行、段落を並べた入れ物の中にあれば空行
+  const isGapBr=b=>{ const c=b.closest(BLOCK); return !c||!!c.querySelector(BLOCK); };
+  const blocks=[...root.querySelectorAll(BLOCK+',br')].filter(b=>
+    b.tagName==='BR' ? isGapBr(b) : !b.querySelector(BLOCK));
+  const hasBlock=blocks.some(b=>b.tagName!=='BR');
+  const list=hasBlock?blocks:[root];
+  const out=[];
+  for(const b of list){
+    if(b.tagName==='BR'){ out.push(''); continue; }   // 段落の外の <br> は空行
+    // 1段落＝1行。段落の中の <br> だけを追加の改行として扱う。
+    let text='',boldLen=0,plainLen=0,letters=0;
+    const walk=n=>{
+      if(n.nodeType===3){
+        const t=n.nodeValue; if(!t) return;
+        const vis=t.replace(/\u00a0/g,' ');
+        if(vis.trim()){
+          letters+=vis.trim().length;
+          if(boldOf(n,root)) boldLen+=vis.trim().length; else plainLen+=vis.trim().length;
+        }
+        const bgc=styleOf(n,root,'backgroundColor'), fgc=styleOf(n,root,'color');
+        const nb=norm(bgc), nf=norm(fgc);
+        const HEXC=/^#[0-9a-f]{6}$/;
+        const fgPlain=!HEXC.test(nf)||nf==='#000000';
+        const bgPlain=!HEXC.test(nb)||nb==='#ffffff';
+        if(isYellow(bgc)&&(fgPlain||isRed(fgc))){
+          const mk=isRed(fgc)?'++':'@@';
+          text+=mk+vis+mk;
+        }else if(!fgPlain||!bgPlain){
+          text+='{{'+attrStr(fgPlain?null:nf,bgPlain?null:nb)+'|'+vis+'}}';
+        }else text+=vis;
+        return;
+      }
+      if(n.nodeType===1){
+        if(n.tagName==='BR'){ text+='\n'; return; }
+        for(const c of n.childNodes) walk(c);
+      }
+    };
+    walk(b);
+    // 中身が空白だけの段落は、<br> があっても空行ひとつとして数える。
+    // （ドキュメントは空行を <p><span><br></span></p> と書き出すため）
+    if(letters===0){ out.push(''); continue; }
+    text=text.replace(/\u00a0/g,' ').replace(/(@@|\+\+)\s*\1/g,'');
+    const bold=boldLen>plainLen;
+    text.split('\n').forEach(piece=>{
+      if(strip(piece).trim()===''){ out.push(''); return; }
+      const tidy=serializeInner(parseInner(bold?piece.trim():piece.replace(/\s+$/,'')));
+      out.push(bold?'**'+tidy+'**':tidy);
+    });
+  }
+  return out.join('\n');
+}
+
+/** 書式から作った行と、素のテキストの行を突き合わせる。
+ *  改行の位置は素のテキストを正とし、書式は「中身」だけを受け取る。
+ *  ドキュメントのHTMLは空段落の書き方が版や設定で変わるため、
+ *  改行の判断をHTMLに任せない。 */
+function mergeWithPlain(htmlLines,plainText){
+  if(!plainText) return htmlLines;
+  const plain=String(plainText).replace(/\r\n?/g,'\n').split('\n');
+  const rich=htmlLines.filter(x=>String(x).trim()!=='');
+  const need=plain.filter(x=>x.trim()!=='').length;
+  if(rich.length!==need) return null;          // 数が合わないときは使わない
+  const out=[]; let k=0;
+  for(const p of plain) out.push(p.trim()===''?'':rich[k++]);
+  return out;
+}
+
+/** 書式付きコピー用のHTML。
+ *  ドキュメントの既定フォントに合わせて Arial を指定する。
+ *  空行は、Googleドキュメント自身がコピー時に使う形（段落と段落の間の <br>）で書き出す。
+ *  空白文字を入れると、ドキュメント側に半角スペースとして残ってしまうため。 */
+const DOC_FONT='Arial, "Yu Gothic", "Hiragino Sans", "Meiryo", sans-serif';
+/** 効果の色。書き出しと読み込みの両方で使う。 */
+const FX={atBg:'#ffff00',ppBg:'#ffff00',ppFg:'#ff0000'};
+function setFxColors(c){ if(c){ ['atBg','ppBg','ppFg'].forEach(k=>{ if(c[k]) FX[k]=c[k]; }); } }
+function scriptToHtml(lines,lh){
+  const esc=s=>s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const LH=(lh&&lh>0)?lh:1.15;
+  const P='margin:0;padding:0;line-height:'+LH+';font-family:'+DOC_FONT+';font-size:11pt';
+  const body=lines.map(raw=>{
+    if(String(raw).trim()===''){ return '<br>'; }
+    const ty=lineType(raw);
+    const bold=(ty==='thread'||ty==='img');
+    const html=groupsOf(parseInner(unbold(raw))).map(g=>{
+      const t=esc(g.t);
+      if(g.fx==='at') return '<span style="background-color:'+FX.atBg+'">'+t+'</span>';
+      if(g.fx==='pp') return '<span style="background-color:'+FX.ppBg+';color:'+FX.ppFg+'">'+t+'</span>';
+      if(g.fg||g.bg){
+        return '<span style="'+(g.fg?'color:'+g.fg+';':'')+(g.bg?'background-color:'+g.bg+';':'')+'">'+t+'</span>';
+      }
+      return t;
+    }).join('');
+    return '<p style="'+P+'">'+(bold?'<b>'+html+'</b>':html)+'</p>';
+  }).join('');
+  return '<div style="font-family:'+DOC_FONT+';line-height:'+LH+'">'+body+'</div>';
+}
+
+/* ---------- レス番号の振り直し（範囲対応） ---------- */
+/** from/to は行番号の範囲。省略すると全体。
+ *  範囲を指定した場合、直前の番号と直後の番号の間に収まるよう配置する。 */
+function renumberRange(lines,cfg,from,to){
+  cfg=Object.assign({},cfg);
+  const A=analyze(lines);
+  const all=A.threadBlocks.filter(b=>b.num!==null);
+  const whole=(from==null||to==null);
+  const target=whole?all:all.filter(b=>b.head.i>=from&&b.head.i<=to);
+  if(!target.length) return {ok:false,reason:'empty'};
+
+  // 範囲を選んだときは、その範囲に元からある番号の最小〜最大の中で振り直す。
+  // 範囲の外は一切動かさないので、前後との辻褄が必ず合う。
+  let lo,hi,before=null;
+  if(whole){ lo=0; hi=null; }
+  else{
+    const ns=target.map(b=>b.num);
+    before=all.filter(b=>b.head.i<from).pop();
+    const after=all.filter(b=>b.head.i>to)[0];
+    // 下限は「範囲の直前の番号」。無ければ範囲内の最小の1つ手前。
+    lo=before?before.num:Math.max(0,Math.min(...ns)-1);
+    // 上限は「範囲の直後の番号」。無ければ範囲内の最大の1つ先。
+    hi=after?after.num:Math.max(...ns)+1;
+  }
+
+  const map=new Map(),plan=[];
+  let cur=lo,prevMeta=before?before.meta:null;
+  // 日付は直前の行ではなく「最後に日付が書かれた行」と比べる。
+  // 地の文で時間を飛ばし、次の番号行に日付だけ書く形に合わせるため。
+  let lastDated=null;
+  for(const b of all){ if(b.head.i>=from) break; if(b.meta&&b.meta.date) lastDated=b.meta; }
+  for(let k=0;k<target.length;k++){
+    const b=target[k];
+    const basis=(b.meta&&b.meta.date&&lastDated)?lastDated:prevMeta;
+    const remain=target.length-k-1;           // 自分より後に置く件数
+    let next;
+    const gr=gapRange(basis,b.meta,cfg);
+    if(cur===0) next=1;
+    // 1〜8は連番。ただし時間が飛んでいる場合はそちらを優先する
+    else if(cur<8&&gr.why==='通常') next=cur+1;
+    else next=cur+(gr.why==='通常'?pickWeighted(gr.range,cfg.gapWeights):pick(gr.range));
+    if(hi!==null){
+      const max=hi-1-remain;                  // 後続が最低1ずつ入る余地を残す
+      if(cur+1>max) return {ok:false,reason:'tight',lo,hi,need:target.length};
+      if(next>max) next=Math.max(cur+1,max);
+    }
+    if(next>1000&&hi===null) return {ok:false,reason:'over',overflow:{at:b.head.i,prev:cur,next}};
+    map.set(b.num,next);
+    plan.push({i:b.head.i,from:b.num,to:next,who:b.who});
+    cur=next; prevMeta=b.meta;
+    if(b.meta&&b.meta.date) lastDated=b.meta;
+  }
+  const out=lines.slice();
+  target.forEach(b=>{ out[b.head.i]=setNumber(out[b.head.i],map.get(b.num)); });
+  for(let i=0;i<out.length;i++){
+    out[i]=out[i].replace(/>>(\d+)/g,(mm,n)=>map.has(+n)?'>>'+map.get(+n):mm);
+  }
+  return {ok:true,lines:out,plan,range:whole?null:[from,to]};
+}
+
+/* ---------- 見出し（アウトライン） ---------- */
+function outline(lines){
+  const r=[];
+  lines.forEach((raw,i)=>{
+    const ty=lineType(raw);
+    if(ty==='head'){ r.push({i,kind:'head',text:strip(raw).trim()}); return; }
+    if(ty!=='thread') return;
+    const m=strip(raw).trim().match(RE_NUMLINE);
+    if(m) r.push({i,kind:'num',num:+m[1],who:m[2],text:m[1]+'.'+m[2]});
+  });
+  return r;
+}
+
+/* ---------- 検索と置換 ---------- */
+function findAll(lines,q,opt){
+  opt=opt||{};
+  if(!q) return [];
+  const res=[];
+  const needle=opt.caseSensitive?q:q.toLowerCase();
+  lines.forEach((raw,i)=>{
+    const hay=opt.withMarks?raw:strip(raw);
+    const h=opt.caseSensitive?hay:hay.toLowerCase();
+    let from=0,idx;
+    while((idx=h.indexOf(needle,from))!==-1){ res.push({i,at:idx}); from=idx+Math.max(1,needle.length); }
+  });
+  return res;
+}
+function replaceAll(lines,q,to,opt){
+  opt=opt||{};
+  let n=0;
+  const out=lines.map(raw=>{
+    if(!raw.includes(q)) return raw;
+    n+=raw.split(q).length-1;
+    return raw.split(q).join(to);
+  });
+  return {lines:out,count:n};
+}
+// ====================== LOGIC END ======================
+/* ================== 状態 ================== */
+const LS='daihon-studio-v1';
+const uid=()=>Math.random().toString(36).slice(2,9);
+const DEF_STAGES=['プロット','草案','本編'];
+
+const FONTS=[
+  ['Arial（ドキュメントと同じ）','Arial,"Yu Gothic","Hiragino Sans","Meiryo",sans-serif'],
+  ['游明朝','"Yu Mincho","YuMincho","Hiragino Mincho ProN",serif'],
+  ['游ゴシック','"Yu Gothic","YuGothic","Hiragino Sans",sans-serif'],
+  ['BIZ UD明朝','"BIZ UDMincho","Yu Mincho",serif'],
+  ['BIZ UDゴシック','"BIZ UDGothic","Yu Gothic",sans-serif'],
+  ['メイリオ','Meiryo,"Yu Gothic",sans-serif'],
+  ['MS 明朝','"MS Mincho","Yu Mincho",serif'],
+  ['MS ゴシック（等幅）','"MS Gothic","Yu Gothic",monospace'],
+  ['UD デジタル教科書体','"UD Digi Kyokasho N-R","Yu Gothic",sans-serif']
+];
+const DOC_FONT_VALUE=FONTS[0][1];
+
+const DEF_KEYS={
+  bold:['Ctrl+b'], num:['Ctrl+Enter'], numTime:['Ctrl+Shift+Enter'],
+  mark:['Ctrl+m'], next:['Ctrl+g'], speak:['Ctrl+r'],
+  at:['Ctrl+1'], pp:['Ctrl+2'], mode:['Ctrl+e'],
+  find:['Ctrl+f'], all:['Ctrl+a'], up:['Alt+ArrowUp'], down:['Alt+ArrowDown'],
+  chk:['Ctrl+Shift+c'], anchor:['Ctrl+j'], fgc:['Alt+f'], bgc:['Alt+h']
+};
+const KEY_LABEL={
+  bold:'太字の切り替え', num:'次のレス番号', numTime:'次のレス番号（日時つき）',
+  mark:'目印', next:'次の指摘へ', speak:'読み上げ', at:'日時ハイライト @@',
+  pp:'時間経過ハイライト ++', mode:'記号の表示切替', find:'検索', all:'全選択',
+  up:'行を上へ', down:'行を下へ', chk:'チェック画面を開く', anchor:'アンカー先へ移動', fgc:'文字の色を開く', bgc:'背景の色を開く'
+};
+
+let S={
+  works:[], aw:0,
+  cfg:{
+    gap:{normal:[3,10],hours:[10,20],nextday:[30,50],days:[50,100]},
+    gapWeights:{},
+    jumpHint:10,
+    keys:JSON.parse(JSON.stringify(DEF_KEYS)),
+    speak:{rate:1,volume:1,pitch:1,bodyVoice:'',threadVoice:'',mode:'body',engine:'web',vvUrl:'',vvBody:1,vvThread:3,gapMs:400,dict:[]},
+    font:DOC_FONT_VALUE, size:16, refSize:14,
+    badStyle:'bar', badAlpha:0.16, badBar:4, colors:{}, lh:1.15,
+    fx:{atBg:'#ffff00',ppBg:'#ffff00',ppFg:'#ff0000'},
+    dict:{}, guide:true, stagesW:170, sideW:340, refH:240, refOn:true,
+    markColor:1, side:'chk', askNote:true
+  }
+};
+const newStage=(name,text)=>({id:uid(),name,text:text||'',check:name==='本編',
+  marks:[],mode:'plain',done:[],exc:[],speakAt:0});
+const newWork=(name)=>({id:uid(),name:name||'新しい台本',stages:DEF_STAGES.map(n=>newStage(n)),as:2});
+/** 作品と工程は必ず実在するものを返す。
+ *  画面が古い状態でクリックされても、指し先が消えないようにする。 */
+function W(){
+  if(!S.works.length) S.works=[newWork('台本1')];
+  if(!(S.aw>=0&&S.aw<S.works.length)) S.aw=0;
+  const w=S.works[S.aw];
+  if(!w.stages||!w.stages.length) w.stages=[newStage('本編')];
+  return w;
+}
+function ST(){
+  const w=W();
+  if(!(w.as>=0&&w.as<w.stages.length)) w.as=w.stages.length-1;
+  return w.stages[w.as];
+}
+const MODE=()=>ST().mode||'plain';
+
+function load(){
+  try{
+    const j=JSON.parse(localStorage.getItem(LS));
+    if(j&&j.works&&j.works.length){
+      S.works=j.works; S.aw=j.aw||0;
+      S.cfg=Object.assign(S.cfg,j.cfg||{});
+      // 古い版（キーが文字列）からの移行
+      const mk=Object.assign(JSON.parse(JSON.stringify(DEF_KEYS)),S.cfg.keys||{});
+      for(const a in mk) mk[a]=Array.isArray(mk[a])?mk[a].filter(x=>typeof x==='string'):(typeof mk[a]==='string'?[mk[a]]:[]);
+      S.cfg.keys=mk;
+      S.cfg.speak=Object.assign({rate:1,volume:1,pitch:1,bodyVoice:'',threadVoice:'',mode:'body',engine:'web',vvUrl:'',vvBody:1,vvThread:3,gapMs:400,dict:[]},S.cfg.speak||{});
+      S.works.forEach(w=>w.stages.forEach(s=>{
+        s.mode=s.mode||'plain'; s.done=s.done||[]; s.exc=s.exc||[];
+        s.marks=s.marks||[]; s.speakAt=s.speakAt||0; if(!s.id) s.id=uid();
+      }));
+    }
+    if(j&&j.cfg&&j.cfg.dict){
+      Object.assign(DICT,j.cfg.dict);
+      // 保存した追加パターンの正規表現を組み立て直す
+      if(Array.isArray(DICT.dupExtra)) DICT.dupExtra=DICT.dupExtra.map(r=>{
+        if(!Array.isArray(r)) return null;
+        let pat=r[0];
+        if(typeof pat==='object'&&pat&&pat.source){ try{ pat=new RegExp(pat.source,pat.flags||''); }catch(e){ return null; } }
+        return [pat,r[1],r[2],r[3]||3];
+      }).filter(Boolean);
+    }
+    // 保存済み辞書の手入れ（版が上がったときだけ一度だけ走る）
+    if((S.cfg.dictVer||0)<3){
+      DICT.kanjiExempt=(DICT.kanjiExempt||[]).filter(w=>!['一人','二人','三人','一人一人'].includes(w));
+    }
+    if((S.cfg.dictVer||0)<2){
+      const drop=['その','この','そんな','これを','これら','どうやら'];
+      DICT.approved=(DICT.approved||[]).filter(w=>!drop.includes(w));
+      const add=['なんという','なんとも','なんとなく','まずは'];
+      DICT.headDeny=(DICT.headDeny||[]).concat(add.filter(w=>!(DICT.headDeny||[]).includes(w)));
+      S.cfg.dictVer=2;
+    }
+    S.cfg.dictVer=Math.max(3,S.cfg.dictVer||0);
+  }catch(e){ toastLater('設定を読み込めなかったため、既定に戻しました'); }
+  // 数値まわりの正規化（古い設定や壊れた値でも設定画面が開けるように）
+  const c=S.cfg, nz=(v,d,lo,hi)=>{
+    if(v===null||v===undefined||v==='') return d;
+    const n=Number(v);
+    return isFinite(n)?Math.min(hi,Math.max(lo,n)):d;
+  };
+  c.size=nz(c.size,16,9,34); c.refSize=nz(c.refSize,14,9,30);
+  c.badAlpha=nz(c.badAlpha,0.16,0,0.6); c.badBar=nz(c.badBar,4,2,12);
+  c.lh=nz(c.lh,1.15,1,3);
+  if(!c.lhSet){ c.lh=1.15; }          // 自分で決めるまではドキュメントに合わせる
+  c.jumpHint=nz(c.jumpHint,10,1,999);
+  c.stagesW=nz(c.stagesW,170,90,400); c.sideW=nz(c.sideW,340,180,760); c.refH=nz(c.refH,240,70,2000);
+  if(!['bar','under','both','fill'].includes(c.badStyle)) c.badStyle='bar';
+  if(!FONTS.some(f=>f[1]===c.font)) c.font=DOC_FONT_VALUE;
+  if(!c.colors||typeof c.colors!=='object') c.colors={};
+  if(!c.gapWeights||typeof c.gapWeights!=='object') c.gapWeights={};
+  const hex=v=>/^#[0-9a-fA-F]{6}$/.test(String(v||''));
+  c.fx=Object.assign({atBg:'#ffff00',ppBg:'#ffff00',ppFg:'#ff0000'},c.fx||{});
+  ['atBg','ppBg','ppFg'].forEach(k=>{ if(!hex(c.fx[k])) c.fx[k]={atBg:'#ffff00',ppBg:'#ffff00',ppFg:'#ff0000'}[k]; });
+  const g=c.gap||{}; c.gap={
+    normal:Array.isArray(g.normal)?g.normal:[3,10], hours:Array.isArray(g.hours)?g.hours:[10,20],
+    nextday:Array.isArray(g.nextday)?g.nextday:[30,50], days:Array.isArray(g.days)?g.days:[50,100]};
+  const sp=c.speak; sp.rate=nz(sp.rate,1,0.5,2.5); sp.volume=nz(sp.volume,1,0,1); sp.pitch=nz(sp.pitch,1,0.5,2);
+  if(sp.engine!=='voicevox') sp.engine='web';
+  sp.vvBody=nz(sp.vvBody,1,0,99999); sp.vvThread=nz(sp.vvThread,3,0,99999);
+  sp.gapMs=nz(sp.gapMs,400,0,5000);
+  if(!Array.isArray(sp.dict)) sp.dict=[];
+  c.assist=Object.assign({emptyLine:false,keepBold:true,autoEffect:false,autoNumTime:false},c.assist||{});
+  if(c.assistVer!==2){ c.assist.keepBold=true; c.assistVer=2; }
+  if(!S.works.length) S.works=[newWork('台本1')];
+  if(S.aw>=S.works.length) S.aw=0;
+  if(W().as>=W().stages.length) W().as=0;
+}
+let saveT=null, snapT=null;
+let _pending=null;
+function toastLater(m){ _pending=m; }
+/* ================== 便利 ================== */
+const $=s=>document.querySelector(s);
+const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e};
+let toastT=null;
+function toast(m){
+  const t=$('#toast'); t.textContent=m; t.classList.add('on');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2100);
+}
+function dialog(title,bodyNode,buttons){
+  return new Promise(res=>{
+    const d=document.createElement('dialog');
+    // 押されたボタンの値を先に控える。close の合図がいつ届いても取り違えない。
+    let picked=null, settled=false;
+    const finish=v=>{ if(settled) return; settled=true; res(v); };
+    const ft=el('div','dlg-ft');
+    (buttons||[{t:'閉じる',v:null}]).forEach(b=>{
+      const btn=el('button','btn',b.t);
+      if(b.primary) btn.classList.add('on');
+      btn.onclick=()=>{ picked=b.v; d.close(); finish(b.v); };
+      ft.append(btn);
+    });
+    const bd=el('div','dlg-bd'); bd.append(bodyNode);
+    d.append(el('div','dlg-hd',title),bd,ft); document.body.append(d);
+    d.addEventListener('close',()=>{ d.remove(); finish(picked); },{once:true});
+    d.showModal();
+  });
+}
+const confirmBox=(title,msg,okLabel)=>dialog(title,el('p',null,msg),
+  [{t:'取消',v:null},{t:okLabel||'実行',v:'ok',primary:true}]).then(v=>v==='ok');
+
+/* ================== エディタ ================== */
+const ED=$('#ed');
+let lines=[], hits=[], hitByLine=new Map(), composing=false, paused=false;
+
+function loadStage(){
+  lastSig=null; clearMarkCache();
+  lines=ST().text.split('\n');
+  undoStack=[]; redoStack=[];
+  renderAll(); renderStages(); renderRefSel();
+  $('#ed-title').textContent=W().name+' ／ '+ST().name;
+  $('#ck-on').checked=!!ST().check;
+  $('#b-mode').textContent=MODE()==='marks'?'記号を隠す':'記号を表示';
+  $('#b-mode').classList.toggle('on',MODE()==='marks');
+  runCheck(); renderOutline(); renderMarks(); updateBoldState();
+}
+function renderAll(){
+  // 3000行級でも一度に組み立てる（1行ずつ差し込むと極端に遅くなる）
+  const buf=new Array(lines.length);
+  const mode=MODE();
+  for(let i=0;i<lines.length;i++){
+    const raw=lines[i];
+    const m=strip(raw||'').trim().match(RE_NUMLINE);
+    buf[i]='<div class="ln t-'+lineType(raw)+'" data-i="'+i+'" data-g="'+(m?m[1]:'')+'">'
+          +decorate(raw,mode)+'</div>';
+  }
+  ED.innerHTML=buf.join('');
+  lastBad=new Set(); lastMark=new Set();
+  paintMarks(); paintHits();
+}
+function makeLine(raw,i){
+  const d=el('div','ln t-'+lineType(raw));
+  d.dataset.i=i;
+  d.innerHTML=decorate(raw,MODE());
+  return d;
+}
+function redrawLine(i,keepOff){
+  const d=ED.children[i]; if(!d) return;
+  const off=keepOff!=null?keepOff:caretOffsetIn(d);
+  d.className='ln t-'+lineType(lines[i]);
+  d.innerHTML=decorate(lines[i],MODE());
+  applyHit(d,i); applyMark(d,i);
+  if(off!==null&&off!==undefined) setCaretIn(d,off);
+}
+function updateGutter(from,to){
+  const a=from==null?0:Math.max(0,from), b=to==null?ED.children.length:Math.min(ED.children.length,to+1);
+  for(let i=a;i<b;i++){
+    const m=strip(lines[i]||'').trim().match(RE_NUMLINE);
+    const g=m?m[1]:'';
+    if(ED.children[i].dataset.g!==g) ED.children[i].dataset.g=g;
+  }
+}
+function caretOffsetIn(node){
+  const sel=getSelection(); if(!sel.rangeCount) return null;
+  const r=sel.getRangeAt(0);
+  if(!node.contains(r.startContainer)&&node!==r.startContainer) return null;
+  const pre=r.cloneRange(); pre.selectNodeContents(node); pre.setEnd(r.startContainer,r.startOffset);
+  return pre.toString().length;
+}
+function setCaretIn(node,off){
+  const walk=document.createTreeWalker(node,NodeFilter.SHOW_TEXT);
+  let n,acc=0;
+  while((n=walk.nextNode())){
+    const len=n.nodeValue.length;
+    if(acc+len>=off){
+      const r=document.createRange(); r.setStart(n,Math.max(0,off-acc)); r.collapse(true);
+      const s=getSelection(); s.removeAllRanges(); s.addRange(r); return;
+    }
+    acc+=len;
+  }
+  const r=document.createRange(); r.selectNodeContents(node); r.collapse(false);
+  const s=getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+function curLineIndex(){
+  const sel=getSelection(); if(!sel.rangeCount) return -1;
+  let n=sel.getRangeAt(0).startContainer;
+  if(n===ED) return Math.min(sel.getRangeAt(0).startOffset,ED.children.length-1);
+  while(n&&n!==ED){ if(n.parentNode===ED) return [...ED.children].indexOf(n); n=n.parentNode; }
+  return -1;
+}
+function focusLine(i,off){
+  const d=ED.children[i]; if(!d) return;
+  ED.focus(); setCaretIn(d,off==null?0:off);
+  d.scrollIntoView({block:'center'}); markCurrent();
+}
+let curEl=null;
+function markCurrent(){
+  const i=curLineIndex();
+  if(curEl) curEl.classList.remove('cur');
+  curEl=ED.children[i]||null;
+  if(curEl) curEl.classList.add('cur');
+  updateBoldState(); updateStatus();
+}
+function updateBoldState(){
+  const i=curLineIndex();
+  let b=i>=0&&(lineType(lines[i])==='thread'||lineType(lines[i])==='img');
+  // まだ文字の無い行でも、太字で書き始める状態なら太字として見せる
+  if(i>=0&&!b&&ED.children[i]&&ED.children[i].classList.contains('t-thread')) b=true;
+  const e=$('#boldstate');
+  e.classList.toggle('is-bold',b);
+  e.title=b?'いまは太字（スレ）':'いまは通常（本文）';
+  e.textContent=b?'太字':'通常';
+}
+
+/* ---- 入力 ---- */
+/** 空の行は表示のために <br> を置いている。
+ *  そこへ日本語入力を始めると、最初の1文字が <br> の外に取り残されることがある。
+ *  入力が始まる直前に <br> を外し、文字を受け取る場所を作っておく。 */
+function prepareLineForInput(){
+  const i=curLineIndex(); if(i<0) return;
+  const d=ED.children[i]; if(!d) return;
+  const br=d.querySelector('br');
+  if(!br) return;
+  if(d.textContent!=='') { br.remove(); return; }   // 文字があるのに <br> が残っている
+  const tn=document.createTextNode('');
+  d.replaceChild(tn,br);
+  const r=document.createRange(); r.setStart(tn,0); r.collapse(true);
+  const s=getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+ED.addEventListener('beforeinput',e=>{
+  if(e.inputType&&e.inputType.startsWith('delete')) return;
+  prepareLineForInput();
+});
+ED.addEventListener('compositionstart',()=>{ prepareLineForInput(); composing=true; });
+ED.addEventListener('compositionend',()=>{ composing=false; syncLine(); scheduleCheck(); });
+ED.addEventListener('input',()=>{ if(composing) return; syncLine(); scheduleCheck(); });
+
+function syncLine(){
+  if(ED.children.length!==lines.length){
+    // ブラウザ側で行が増減したとき。位置を控えてから組み直す。
+    const i=curLineIndex(), off=i>=0?caretOffsetIn(ED.children[i]):0;
+    pullAll(); renderAll(); afterEdit(); runCheck(); renderOutline();
+    if(i>=0) focusLine(Math.min(i,lines.length-1),off||0);
+    return;
+  }
+  const i=curLineIndex();
+  if(i<0){ pullAll(); updateGutter(); afterEdit(); return; }
+  const d=ED.children[i];
+  const t=rawFromLine(d,MODE());
+  if(t===lines[i]) return;
+  pushUndo();
+  lines[i]=t;
+  // 記号なし表示で @@…@@ を打ち終えたら、その場で装飾へ変える
+  if(S.cfg.assist.autoEffect&&MODE()!=='marks'&&/@@[^@]+@@|\+\+[^+]+\+\+/.test(t)){
+    const off=caretOffsetIn(d);
+    redrawLine(i, off==null?null:Math.max(0,off-4));
+  }else{
+    const off=caretOffsetIn(d);
+    d.className='ln t-'+lineType(lines[i]);
+    applyHit(d,i); applyMark(d,i);
+    if(off!=null) setCaretIn(d,off);
+  }
+  updateGutter(i,i); afterEdit();
+}
+function pullAll(){ lines=[...ED.children].map(d=>rawFromLine(d,MODE())); }
+function afterEdit(){ ST().text=lines.join('\n'); clearMarkCache(); save(); snapshot(); updateBoldState(); }
+
+/* ---- 取り消し・やり直し（0.5秒でひとまとまり） ---- */
+let undoStack=[], redoStack=[], lastPush=0;
+function snapNow(){
+  const i=curLineIndex();
+  return {lines:lines.slice(),i,off:i>=0?caretOffsetIn(ED.children[i]):0};
+}
+function pushUndo(force){
+  const now=Date.now();
+  if(!force&&now-lastPush<500&&undoStack.length) { lastPush=now; return; }
+  lastPush=now;
+  undoStack.push(snapNow());
+  if(undoStack.length>200) undoStack.shift();
+  redoStack=[];
+}
+function applySnap(s){
+  lines=s.lines.slice(); renderAll(); afterEdit(); runCheck(); renderOutline(); renderMarks();
+  if(s.i>=0&&s.i<lines.length) focusLine(s.i,s.off||0);
+}
+function undo(){
+  if(!undoStack.length){ toast('これ以上戻せません'); return; }
+  redoStack.push(snapNow());
+  applySnap(undoStack.pop());
+}
+function redo(){
+  if(!redoStack.length){ toast('やり直せる操作がありません'); return; }
+  undoStack.push(snapNow());
+  applySnap(redoStack.pop());
+}
+
+/* ---- キー ---- */
+function keyOf(e){
+  const p=[];
+  if(e.ctrlKey||e.metaKey) p.push('Ctrl');
+  if(e.shiftKey) p.push('Shift');
+  if(e.altKey) p.push('Alt');
+  let k=e.key;
+  if(k===' ') k='Space';
+  if(k.length===1) k=k.toLowerCase();
+  if(['Control','Shift','Alt','Meta'].includes(k)) return null;
+  p.push(k); return p.join('+');
+}
+const ACTS={
+  bold:()=>toggleBold(), num:()=>insertNumber(false), numTime:()=>insertNumber(true),
+  mark:()=>toggleMark(), next:()=>jumpNextHit(), speak:()=>toggleSpeak(),
+  at:()=>wrapEffect('@@'), pp:()=>wrapEffect('++'), mode:()=>toggleMode(),
+  find:()=>openFind(), all:()=>selectAll(), up:()=>moveLine(-1), down:()=>moveLine(1),
+  chk:()=>showSide('chk'), anchor:()=>jumpAnchor(),
+  fgc:()=>openPalette('fg',$('#fc-fg')), bgc:()=>openPalette('bg',$('#fc-bg'))
+};
+document.addEventListener('keydown',e=>{
+  const k=keyOf(e); if(!k) return;
+  if(k==='Ctrl+z'){ e.preventDefault(); undo(); return; }
+  if(k==='Ctrl+Shift+z'||k==='Ctrl+y'){ e.preventDefault(); redo(); return; }
+  if(k==='F2'){ e.preventDefault(); jumpMark(e.shiftKey?-1:1); return; }
+  for(const a in S.cfg.keys){
+    if((S.cfg.keys[a]||[]).includes(k)){ e.preventDefault(); ACTS[a] && ACTS[a](); return; }
+  }
+},true);
+ED.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!composing){ e.preventDefault(); splitLine(); return; }
+  if(e.key==='Delete'&&!composing){
+    const i=curLineIndex(); if(i<0) return;
+    const sel=getSelection();
+    if(!sel.isCollapsed) return;                      // 選択を消す場合は通常の処理へ
+    const off=caretOffsetIn(ED.children[i]);
+    if(off===shown(lines[i]).length){                 // 行末なら次の行を引き上げる
+      if(i+1>=lines.length){ e.preventDefault(); return; }
+      e.preventDefault(); mergeNext(i); return;
+    }
+    return;                                           // 行の中なら通常の1文字削除
+  }
+  if(e.key==='Backspace'&&!composing){
+    const i=curLineIndex(); if(i<0) return;
+    const sel=getSelection();
+    if(!sel.isCollapsed) return;
+    const off=caretOffsetIn(ED.children[i]);
+    // 装飾の右端では、まず装飾だけを外す
+    if(off>0&&MODE()!=='marks'){
+      const r=sel.getRangeAt(0);
+      let n=r.startContainer; while(n&&n.parentNode!==ED.children[i]) n=n.parentNode;
+      if(n&&n.dataset&&n.dataset.k&&n.dataset.k!=='cs'&&off===offsetOfEnd(ED.children[i],n)){
+        e.preventDefault(); unwrapEffect(i,n); return;
+      }
+    }
+    if(off===0&&i>0){ e.preventDefault(); mergeLine(i); }
+  }
+});
+function offsetOfEnd(line,node){
+  let acc=0;
+  for(const n of line.childNodes){ acc+=n.textContent.length; if(n===node) return acc; }
+  return -1;
+}
+ED.addEventListener('keyup',markCurrent);
+ED.addEventListener('click',markCurrent);
+
+function splitLine(){
+  const i=curLineIndex(); if(i<0) return;
+  pushUndo(true);
+  const off=caretOffsetIn(ED.children[i])||0;
+  const wasBold=(lineType(lines[i])==='thread'||lineType(lines[i])==='img');
+  const [a,b]=splitRaw(lines[i],off,MODE(),S.cfg.assist.keepBold);
+  lines.splice(i,1,a,b);
+  renderAll(); afterEdit(); runCheck(); renderOutline();
+  // 下の行が空でも、太字のまま書き始められるようにする
+  // （記号は文字を打った時点で付く）
+  if(wasBold&&S.cfg.assist.keepBold&&lines[i+1]===''){
+    const d=ED.children[i+1];
+    if(d){ d.classList.remove('t-blank'); d.classList.add('t-thread'); }
+  }
+  focusLine(i+1,0);
+}
+/** 行末のDeleteで次の行を引き上げる。カーソルは継ぎ目に残す。 */
+function mergeNext(i){
+  pushUndo(true);
+  const off=shown(lines[i]).length;
+  lines.splice(i,2,joinRaw(lines[i],lines[i+1]));
+  renderAll(); afterEdit(); runCheck(); renderOutline();
+  focusLine(i,off);
+}
+function mergeLine(i){
+  pushUndo(true);
+  const off=shown(lines[i-1]).length;
+  lines.splice(i-1,2,joinRaw(lines[i-1],lines[i]));
+  renderAll(); afterEdit(); runCheck(); renderOutline();
+  focusLine(i-1,off);
+}
+function moveLine(d){
+  const rg=selectedRange(); if(!rg) return;
+  const [a,b]=rg;
+  if(d<0&&a===0) return;
+  if(d>0&&b===lines.length-1) return;
+  pushUndo(true);
+  const seg=lines.splice(a,b-a+1);
+  lines.splice(a+d,0,...seg);
+  renderAll(); afterEdit(); runCheck(); renderOutline();
+  focusLine(a+d,0);
+}
+function selectAll(){
+  const r=document.createRange(); r.selectNodeContents(ED);
+  const s=getSelection(); s.removeAllRanges(); s.addRange(r); ED.focus();
+}
+function selectedRange(){
+  const sel=getSelection(); if(!sel.rangeCount) return null;
+  const r=sel.getRangeAt(0);
+  const idx=n=>{ if(n===ED) return null; while(n&&n.parentNode!==ED) n=n.parentNode; return n?[...ED.children].indexOf(n):-1; };
+  let a=idx(r.startContainer), b=idx(r.endContainer);
+  if(a===null) a=0;
+  if(b===null) b=lines.length-1;
+  if(a<0||b<0) return null;
+  return [Math.min(a,b),Math.max(a,b)];
+}
+
+/* ---- 太字と効果 ---- */
+function toggleBold(){
+  const rg=selectedRange(); if(!rg) return;
+  const [a,b]=rg;
+  const sel=getSelection();
+  const collapsed=sel.isCollapsed;
+  const off=collapsed?caretOffsetIn(ED.children[a]):null;
+
+  // 文字の無い行だけを選んでいる場合は「これから太字で書く」状態にする
+  const allEmpty=(()=>{ for(let i=a;i<=b;i++) if(lines[i].trim()!=='') return false; return true; })();
+  if(allEmpty){
+    const d=ED.children[a]; if(!d) return;
+    const on=!d.classList.contains('t-thread');
+    for(let i=a;i<=b;i++){
+      const x=ED.children[i]; if(!x) continue;
+      x.classList.toggle('t-thread',on);
+      x.classList.toggle('t-blank',!on);
+    }
+    updateBoldState();
+    toast(on?'ここから太字で書けます':'通常に戻しました');
+    return;
+  }
+
+  pushUndo(true);
+  let anyPlain=false;
+  for(let i=a;i<=b;i++) if(lines[i].trim()&&!lines[i].trim().startsWith('**')) anyPlain=true;
+  for(let i=a;i<=b;i++){
+    const t=lines[i]; if(!t.trim()) continue;
+    lines[i]=anyPlain?(t.trim().startsWith('**')?t:'**'+t.trim()+'**'):unbold(t);
+  }
+  renderAll(); afterEdit(); runCheck();
+  // カーソルだけの場合はその位置に戻す（続けて書けるように）
+  if(collapsed) focusLine(a,Math.min(off||0,shown(lines[a]).length));
+  else focusLine(b,shown(lines[b]).length);
+}
+function wrapEffect(mk){
+  const sel=getSelection(); if(!sel.rangeCount) return;
+  const i=curLineIndex(); if(i<0) return;
+  const r=sel.getRangeAt(0);
+  const d=ED.children[i];
+  const s0=caretOffsetIn(d);
+  const pre=r.cloneRange(); pre.selectNodeContents(d); pre.setEnd(r.endContainer,r.endOffset);
+  const s1=pre.toString().length;
+  if(s0===s1){ toast('効果をつける範囲を選んでください'); return; }
+  pushUndo(true);
+  const p=partsOf(lines[i]);
+  if(MODE()==='marks'){
+    const a=innerOffset(p.inner,Math.min(s0,s1),MODE()), b=innerOffset(p.inner,Math.max(s0,s1),MODE());
+    lines[i]=buildRaw(p.bold,p.inner.slice(0,a)+mk+p.inner.slice(a,b)+mk+p.inner.slice(b));
+  }else{
+    const ch=parseInner(p.inner);
+    for(let k=Math.min(s0,s1);k<Math.max(s0,s1)&&k<ch.length;k++){
+      ch[k].fx=(mk==='@@'?'at':'pp'); ch[k].fg=null; ch[k].bg=null;
+    }
+    lines[i]=buildRaw(p.bold,serializeInner(ch));
+  }
+  redrawLine(i,Math.max(s0,s1)); updateGutter(); afterEdit(); runCheck();
+}
+function unwrapEffect(i,node){
+  pushUndo(true);
+  const txt=node.textContent, k=node.dataset.k, mk=MK[k];
+  lines[i]=lines[i].replace(mk+txt+mk,txt);
+  redrawLine(i); updateGutter(); afterEdit(); runCheck();
+}
+function toggleMode(){
+  const i=curLineIndex(), off=i>=0?caretOffsetIn(ED.children[i]):0;
+  ST().mode=MODE()==='marks'?'plain':'marks';
+  save();
+  $('#b-mode').textContent=MODE()==='marks'?'記号を隠す':'記号を表示';
+  $('#b-mode').classList.toggle('on',MODE()==='marks');
+  renderAll(); renderRef();
+  if(i>=0) focusLine(i,Math.min(off||0,ED.children[i].textContent.length));
+  toast(MODE()==='marks'?'記号を表示しています':'ドキュメントと同じ見た目にしました');
+}
+
+/* ---- 貼り付け ---- */
+ED.addEventListener('paste',e=>{
+  e.preventDefault();
+  const html=e.clipboardData.getData('text/html');
+  const txt=e.clipboardData.getData('text/plain');
+  // 書式なしの貼り付け（Ctrl+Shift+V など）：書式の情報が来ない。
+  // 記号つきの文（PC版・スマホ版から「記号つき」で渡したもの）でなければ、貼り先の書式に合わせる。
+  if(!html&&!hasMarks(txt)){ insertPlain(txt); return; }
+  // アプリ内で切り取り・コピーしたものなら、その書式のまま貼る
+  if(lastClip&&norm1(txt)===norm1(lastClip.plain)){
+    insertText(lastClip.raw.join('\n'),{keepFormat:true});
+    return;
+  }
+  insertText(pickPaste(html,txt),{keepFormat:true});
+});
+const norm1=s=>String(s||'').replace(/\r\n?/g,'\n').replace(/\s+$/,'');
+/** 記号（** @@ ++ {{ }}）を含む文か */
+const hasMarks=s=>/\*\*|@@|\+\+|\{\{(?:fg|bg)=#/.test(String(s||''));
+/** 書式なしで貼る：文字だけを、貼り先の行の書式のまま差し込む。
+ *  1行なら行を割らずにそのまま入る。複数行なら、各行が貼り先と同じ書式になる。 */
+function insertPlain(text){
+  const i=curLineIndex();
+  const parts=String(text||'').replace(/\r\n?/g,'\n').split('\n').map(p=>strip(p));
+  if(!parts.length||(parts.length===1&&parts[0]==='')) return;
+  pushUndo(true);
+  if(i<0){ lines=lines.concat(parts); renderAll(); afterEdit(); runCheck(); renderOutline(); return; }
+  const destBold=(lineType(lines[i])==='thread'||lineType(lines[i])==='img'
+    ||(ED.children[i]&&ED.children[i].classList.contains('t-thread')&&lines[i]===''));
+  const off=caretOffsetIn(ED.children[i])||0;
+  if(parts.length===1){
+    // 行の途中にそのまま入れる。空の太字行なら太字のまま
+    const base=(lines[i]===''&&destBold)?'****':lines[i];
+    lines[i]=insertIntoRaw(base,off,parts[0],MODE());
+    if(destBold&&!/^\s*\*\*/.test(lines[i])) lines[i]='**'+lines[i]+'**';
+    renderAll(); afterEdit(); runCheck(); renderOutline();
+    focusLine(i,off+parts[0].length);
+    return;
+  }
+  const wrap=p=>(destBold&&p!=='')?'**'+p+'**':p;
+  const [h,t]=splitRaw(lines[i],off,MODE(),true);
+  const ph=partsOf(h), pt=partsOf(t);
+  const first=buildRaw(ph.bold||destBold, serializeInner(parseInner(ph.inner+parts[0])));
+  const lastText=parts[parts.length-1];
+  const lastLine=buildRaw(pt.bold||destBold, serializeInner(parseInner(lastText+pt.inner)));
+  lines.splice(i,1,first,...parts.slice(1,-1).map(wrap),lastLine);
+  renderAll(); afterEdit(); runCheck(); renderOutline();
+  const at=i+parts.length-1;
+  focusLine(at,lastText.length);
+}
+/** ［書式なしで貼り付け］ボタン用 */
+async function pastePlain(){
+  try{
+    const t=await navigator.clipboard.readText();
+    if(!t){ toast('クリップボードが空です'); return; }
+    if(hasMarks(t)) insertText(t,{keepFormat:true}); else insertPlain(t);
+  }catch(e){ toast('貼り付けできません。エディタの上で Ctrl+Shift+V を使ってください'); }
+}
+/** 貼り付け元を選ぶ。
+ *  記号つきのテキスト（アプリから出したもの）はそのまま。
+ *  それ以外で書式があれば、書式から記号を組み立て直す。 */
+function pickPaste(html,txt){
+  txt=String(txt||'');
+  if(/\*\*/.test(txt)) return txt;                       // アプリ由来
+  if(!html) return txt;
+  if(!/<(b|strong|span|p|div|li|br|h[1-6]|table)\b/i.test(html)) return txt;
+  try{
+    const rich=htmlToScript(html).split('\n');
+    // 改行の位置は素のテキストを正とする（空行が最も確実に残る）
+    const merged=txt?mergeWithPlain(rich,txt):null;
+    const r=(merged||rich).join('\n');
+    // 書式から作った結果が明らかに短ければ、素のテキストを使う
+    const a=r.replace(/[*@+\s]/g,'').length, b=txt.replace(/\s/g,'').length;
+    return (b>0&&a<b*0.8)?txt:r;
+  }catch(e){ return txt; }
+}
+function insertText(text,opt){
+  opt=opt||{};
+  const i0=curLineIndex();
+  let parts0=String(text).replace(/\r\n?/g,'\n').split('\n');
+  // 貼る側の書式を守る：書式の違う1行を行の途中に貼るときは、その行だけ独立させる
+  if(opt.keepFormat&&i0>=0&&parts0.length===1&&parts0[0]!==''){
+    const destBold=(lineType(lines[i0])==='thread'||lineType(lines[i0])==='img'
+      ||(ED.children[i0]&&ED.children[i0].classList.contains('t-thread')&&lines[i0]===''));
+    const srcBold=/^\s*\*\*[\s\S]*\*\*\s*$/.test(parts0[0]);
+    if(lines[i0]===''){
+      pushUndo(true);
+      lines[i0]=parts0[0];
+      renderAll(); afterEdit(); runCheck(); renderOutline();
+      focusLine(i0,shown(lines[i0]).length);
+      return;
+    }
+    if(destBold!==srcBold){
+      pushUndo(true);
+      const off=caretOffsetIn(ED.children[i0])||0;
+      const [h,t]=splitRaw(lines[i0],off,MODE(),true);
+      const seg=[];
+      if(partsOf(h).inner!=='') seg.push(h);
+      seg.push(parts0[0]);
+      if(partsOf(t).inner!=='') seg.push(t);
+      lines.splice(i0,1,...seg);
+      renderAll(); afterEdit(); runCheck(); renderOutline();
+      const at=i0+(partsOf(h).inner!==''?1:0);
+      focusLine(at,shown(lines[at]).length);
+      toast('書式が違うため別の行として貼りました');
+      return;
+    }
+  }
+  const i=i0;
+  let parts=parts0;
+  // すでに太字の行へ太字の内容を貼るときは、重なる ** を外す
+  const intoBold=i>=0&&(lineType(lines[i])==='thread'||lineType(lines[i])==='img'
+    ||(ED.children[i]&&ED.children[i].classList.contains('t-thread')));
+  if(intoBold&&parts.some(p=>/^\s*\*\*[\s\S]*\*\*\s*$/.test(p))){
+    parts=parts.map(p=>/^\s*\*\*[\s\S]*\*\*\s*$/.test(p)?unbold(p):p);
+  }
+  pushUndo(true);
+  if(i<0){ lines=lines.concat(parts); }
+  else{
+    const off=caretOffsetIn(ED.children[i])||0;
+    if(parts.length===1) lines[i]=insertIntoRaw(lines[i],off,parts[0],MODE());
+    else{
+      const [h,t2]=splitRaw(lines[i],off,MODE(),S.cfg.assist.keepBold);
+      lines.splice(i,1,joinRaw(h,parts[0]),...parts.slice(1,-1),joinRaw(parts[parts.length-1],t2));
+    }
+  }
+  renderAll(); afterEdit(); runCheck(); renderOutline();
+  const at=i<0?lines.length-1:i+parts.length-1;
+  focusLine(at,shown(lines[at]||'').length);
+}
+
+/* ================== 文字色と背景色 ================== */
+/* Googleドキュメントと同じ並びの色見本 */
+const DOC_PALETTE=[
+  ['#000000','#434343','#666666','#999999','#b7b7b7','#cccccc','#d9d9d9','#efefef','#f3f3f3','#ffffff'],
+  ['#980000','#ff0000','#ff9900','#ffff00','#00ff00','#00ffff','#4a86e8','#0000ff','#9900ff','#ff00ff'],
+  ['#e6b8af','#f4cccc','#fce5cd','#fff2cc','#d9ead3','#d0e0e3','#c9daf8','#cfe2f3','#d9d2e9','#ead1dc'],
+  ['#dd7e6b','#ea9999','#f9cb9c','#ffe599','#b6d7a8','#a2c4c9','#a4c2f4','#9fc5e8','#b4a7d6','#d5a6bd'],
+  ['#cc4125','#e06666','#f6b26b','#ffd966','#93c47d','#76a5af','#6d9eeb','#6fa8dc','#8e7cc3','#c27ba0'],
+  ['#a61c00','#cc0000','#e69138','#f1c232','#6aa84f','#45818e','#3c78d8','#3d85c6','#674ea7','#a64d79'],
+  ['#85200c','#990000','#b45f06','#bf9000','#38761d','#134f5c','#1155cc','#0b5394','#351c75','#741b47'],
+  ['#5b0f00','#660000','#783f04','#7f6000','#274e13','#0c343d','#1c4587','#073763','#20124d','#4c1130']
+];
+let colorSel=null;          // 色見本を開いたときの選択範囲（見本を触ると選択が消えるため控える）
+
+/** 選択範囲の文字色（kind='fg'）か背景色（kind='bg'）を変える。color が null なら外す。 */
+function applyColor(kind,color){
+  return applyColors(kind==='fg'?{fg:color}:{bg:color});
+}
+/** 文字色と背景色をまとめて変える（1回の取り消しで戻る）。
+ *  change は {fg:色|null} / {bg:色|null} / 両方 */
+function applyColors(change){
+  if(MODE()==='marks'){ toast('色は記号を隠した表示で変えられます（Ctrl+E で切り替え）'); return false; }
+  const sr=colorSel||selectedRaw();
+  if(!sr||(sr.a===sr.b&&sr.s0===sr.s1)){ toast('色を変える文字を選んでください'); return false; }
+  pushUndo(true);
+  for(let i=sr.a;i<=sr.b;i++){
+    const p=partsOf(lines[i]);
+    const ch=parseInner(p.inner);
+    const from=i===sr.a?sr.s0:0, to=i===sr.b?sr.s1:ch.length;
+    for(let k=from;k<to&&k<ch.length;k++){
+      const c=ch[k];
+      // @@ ++ の文字を塗り直すときは、いまの見た目の色を引き継いでから変える
+      if(c.fx==='at'){ c.bg=FX.atBg; c.fx=null; }
+      else if(c.fx==='pp'){ c.bg=FX.ppBg; c.fg=FX.ppFg; c.fx=null; }
+      if('fg' in change) c.fg=change.fg||null;
+      if('bg' in change) c.bg=change.bg||null;
+    }
+    lines[i]=buildRaw(p.bold,serializeInner(ch));
+  }
+  renderAll(); afterEdit(); runCheck();
+  selectDisp(sr.a,sr.s0,sr.b,sr.s1);
+  if(change.fg){ S.cfg.lastFg=change.fg; }
+  if(change.bg){ S.cfg.lastBg=change.bg; }
+  if(change.fg||change.bg){ save(); paintSwatches(); }
+  return true;
+}
+/** 表示上の位置で範囲を選び直す */
+function selectDisp(a,s0,b,s1){
+  const pos=(li,off)=>{
+    const d=ED.children[li]; if(!d) return null;
+    const walk=document.createTreeWalker(d,NodeFilter.SHOW_TEXT);
+    let n,acc=0;
+    while((n=walk.nextNode())){ const L=n.nodeValue.length; if(acc+L>=off) return [n,off-acc]; acc+=L; }
+    return [d,d.childNodes.length];
+  };
+  const p0=pos(a,s0), p1=pos(b,s1); if(!p0||!p1) return;
+  if(document.activeElement!==ED) ED.focus();   // 先に焦点を当ててから選ぶ（逆だと選択が消える）
+  const r=document.createRange();
+  try{ r.setStart(p0[0],p0[1]); r.setEnd(p1[0],p1[1]); }catch(e){ return; }
+  const s=getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+
+/* ---- 色見本 ---- */
+function paintSwatches(){
+  const f=$('#fg-sw'), b=$('#bg-sw');
+  if(f) f.style.background=S.cfg.lastFg||'#000000';
+  if(b) b.style.background=S.cfg.lastBg||'#ffff00';
+}
+function openPalette(kind,anchor){
+  closePalette();
+  colorSel=selectedRaw();
+  if(!colorSel||(colorSel.a===colorSel.b&&colorSel.s0===colorSel.s1)){
+    colorSel=null; toast('色を変える文字を選んでください'); return;
+  }
+  const box=el('div'); box.id='palette';
+  box.addEventListener('mousedown',e=>{ if(e.target.tagName!=='INPUT') e.preventDefault(); });
+  const hd=el('div','pal-hd',kind==='fg'?'文字の色':'背景の色');
+  const none=el('button','pal-none',kind==='fg'?'自動（黒）':'なし');
+  none.onclick=()=>{ applyColor(kind,null); closePalette(); };
+  const grid=el('div','pal-grid');
+  DOC_PALETTE.forEach((row,ri)=>{
+    row.forEach(c=>{
+      const b=el('button','pal-c');
+      b.style.background=c; b.title=c;
+      if(ri===1) b.classList.add('gap');
+      b.onclick=()=>{ applyColor(kind,c); closePalette(); };
+      grid.append(b);
+    });
+  });
+  const cu=el('div','pal-custom');
+  const inp=el('input'); inp.type='color';
+  inp.value=(kind==='fg'?S.cfg.lastFg:S.cfg.lastBg)||(kind==='fg'?'#000000':'#ffff00');
+  const ok=el('button','btn mini','この色にする');
+  ok.onclick=()=>{ applyColor(kind,inp.value.toLowerCase()); closePalette(); };
+  cu.append(el('span',null,'カスタム'),inp,ok);
+  box.append(hd,none,grid,cu);
+  document.body.append(box);
+  const r=anchor.getBoundingClientRect();
+  box.style.left=Math.min(r.left,innerWidth-box.offsetWidth-8)+'px';
+  box.style.top=(r.bottom+4)+'px';
+  setTimeout(()=>document.addEventListener('mousedown',outside,true),0);
+}
+function outside(e){ const p=$('#palette'); if(p&&!p.contains(e.target)&&!e.target.closest('.fmtbtn')) closePalette(); }
+function closePalette(){
+  const p=$('#palette'); if(p) p.remove();
+  document.removeEventListener('mousedown',outside,true);
+  colorSel=null;
+}
+
+/* ================== レス番号 ================== */
+function lastNumBefore(i){
+  let found=null;
+  for(let k=i;k>=0;k--){
+    const m=strip(lines[k]||'').trim().match(RE_NUMLINE);
+    if(m){ found={n:+m[1],i:k,meta:metaOf(lines[k])}; break; }
+  }
+  if(!found) return null;
+  // 日付は「最後に日付が書かれた行」と比べる
+  if(!found.meta.date){
+    for(let k=found.i;k>=0;k--){
+      const mm=metaOf(lines[k]||'');
+      if(mm.date){ found.dateMeta=mm; break; }
+    }
+  }else found.dateMeta=found.meta;
+  return found;
+}
+async function insertNumber(withTime){
+  const i=curLineIndex(); if(i<0) return;
+  const prev=lastNumBefore(i);
+  let meta={date:null,elapsedH:null},deco='';
+  if(withTime){
+    const r=await askTime(); if(!r) return;
+    deco='　'+r.deco; meta=metaOf(r.deco);
+  }
+  let next;
+  if(!prev) next=1;
+  else if(prev.n<8&&gapRange((meta.date&&prev.dateMeta)?prev.dateMeta:prev.meta,meta,S.cfg).why==='通常') next=prev.n+1;
+  else{
+    const basis=(meta.date&&prev.dateMeta)?prev.dateMeta:prev.meta;
+    const gr=gapRange(basis,meta,S.cfg);
+    next=prev.n+(gr.why==='通常'?pickWeighted(gr.range,S.cfg.gapWeights):pick(gr.range));
+  }
+  // 直後にある番号を超えないようにする
+  let nextAfter=null;
+  for(let k=i+1;k<lines.length;k++){
+    const m=strip(lines[k]||'').trim().match(RE_NUMLINE);
+    if(m){ nextAfter=+m[1]; break; }
+  }
+  if(nextAfter!==null&&prev){
+    if(nextAfter-prev.n<2){
+      await dialog('番号を入れる余地がありません',
+        el('p',null,'直前が '+prev.n+' 番、直後が '+nextAfter+' 番です。'+
+          'この間に入れられる番号がありません。先に後ろの番号を振り直してください。'),
+        [{t:'閉じる',v:null}]);
+      return;
+    }
+    if(next>=nextAfter){
+      // 間に収まる値へ寄せる
+      next=prev.n+1+Math.floor(Math.random()*(nextAfter-prev.n-1));
+      toast('直後の '+nextAfter+' 番に収まるよう '+next+' 番にしました');
+    }
+  }
+  if(next>1000){
+    await dialog('レス番号が1000を超えます',
+      el('p',null,'直前は '+prev.n+' 番、次は '+next+' 番になります。'+
+        'スレは1000番で書き込めなくなるため、ここで新しいスレに移ってください。'),
+      [{t:'閉じる',v:null}]);
+    return;
+  }
+  pushUndo(true);
+  const who=(!prev)?'イッチ':'名無し';
+  const at=(lines[i].trim()==='')?i:i+1;
+  const head='**'+next+'.'+who+deco+'**';
+  const add=[head];
+  if(S.cfg.assist.emptyLine) add.push('****');   // 空の太字行（設定で入）
+  add.push('');                                   // 投稿のあとの空行
+  lines.splice(at,0,...add);
+  renderAll(); afterEdit(); runCheck(); renderOutline();
+  // 番号行の末尾にカーソルを置く。改行すれば太字のまま本文を書ける。
+  const cur=S.cfg.assist.emptyLine?at+1:at;
+  focusLine(cur,shown(lines[cur]).length);
+  if(S.cfg.assist.emptyLine&&ED.children[cur]){
+    ED.children[cur].classList.remove('t-blank');
+    ED.children[cur].classList.add('t-thread');
+  }
+  if(next>=880) toast(next+'番です。1000番が近づいています');
+}
+function askTime(){
+  const box=el('div');
+  box.innerHTML='<div class="kv">'+
+    '<label>種類</label><select id="tk"><option value="date">日付（@@ 日をまたぐ）</option>'+
+    '<option value="elapse">経過（++ 同日内）</option></select>'+
+    '<label>日付</label><input type="text" id="td" placeholder="2024/4/6(土)　12時～">'+
+    '<label>経過</label><input type="text" id="te" placeholder="※2時間後の時間にしてください">'+
+    '</div>';
+  return dialog('日時・経過を入れる',box,[{t:'取消',v:null},{t:'入れる',v:'ok',primary:true}]).then(v=>{
+    if(v!=='ok') return null;
+    if(box.querySelector('#tk').value==='date'){
+      const d=box.querySelector('#td').value.trim(); return d?{deco:'@@'+d+'@@'}:null;
+    }
+    const e2=box.querySelector('#te').value.trim(); return e2?{deco:'++'+e2+'++'}:null;
+  });
+}
+async function doRenumber(){
+  const rg=selectedRange();
+  const whole=!rg||rg[0]===rg[1];
+  let r;
+  if(whole){ r=renumberRange(lines,S.cfg); }
+  else{ r=renumberRange(lines,S.cfg,rg[0],rg[1]); }
+  if(!r.ok){
+    if(r.reason==='tight'){
+      await dialog('範囲に収まりません',
+        el('p',null,'直前が '+r.lo+' 番、直後が '+r.hi+' 番で、その間に '+r.need+
+          ' 件を入れる必要があります。間隔が足りないため振り直せません。範囲を広げてください。'),
+        [{t:'閉じる',v:null}]);
+    }else if(r.reason==='over'){
+      await dialog('レス番号が1000を超えます',
+        el('p',null,'このまま積むと '+r.overflow.next+' 番になります。新しいスレに移ってください。'),
+        [{t:'閉じる',v:null}]);
+    }else toast('振り直せる番号がありません');
+    return;
+  }
+  const changed=r.plan.filter(p=>p.from!==p.to);
+  if(!changed.length){ toast('変更はありません'); return; }
+  const box=el('div');
+  const t=el('table','diff');
+  t.innerHTML='<tr><th>行</th><th>変更前</th><th>変更後</th><th></th></tr>'+
+    changed.slice(0,400).map(p=>'<tr><td>'+(p.i+1)+'</td><td>'+p.from+'</td><td><b>'+p.to+'</b></td><td>'+p.who+'</td></tr>').join('');
+  const ns=r.plan.map(p=>p.to);
+  box.append(el('p',null,(whole?'全体':'選んだ範囲（'+(rg[0]+1)+'〜'+(rg[1]+1)+'行）')+
+    'で '+changed.length+'件の番号が変わります。'+
+    (whole?'':'範囲内は '+Math.min(...ns)+'〜'+Math.max(...ns)+' に収まり、範囲外の番号は動きません。')+
+    'アンカー（>>）も追従します。'),t);
+  if(await dialog('番号の振り直し',box,[{t:'取消',v:null},{t:'適用する',v:'ok',primary:true}])!=='ok') return;
+  pushUndo(true);
+  lines=r.lines; renderAll(); afterEdit(); runCheck(); renderOutline();
+  toast(changed.length+'件を振り直しました（Ctrl+Zで戻せます）');
+}
+
+/* ================== チェック ================== */
+let checkT=null, chkFilter='all', lastSig=null;
+function scheduleCheck(){ clearTimeout(checkT); checkT=setTimeout(runCheck,220); }
+const hitKey=h=>h.kind+'\u0000'+(lines[h.i]||'')+'\u0000'+h.msg.replace(/\d+/g,'#');
+function runCheck(){
+  if(paused||!ST().check){ hits=[]; hitByLine=new Map(); paintHits(); lastSig=null; renderHits(); updateStatus(); return; }
+  hits=check(lines,S.cfg);
+  const exc=new Set(ST().exc||[]), done=new Set(ST().done||[]);
+  hits.forEach(h=>{ const k=hitKey(h); h.key=k; h.st=exc.has(k)?'exc':(done.has(k)?'done':'open'); });
+  hitByLine=new Map();
+  hits.forEach(h=>{ if(h.st==='open'&&!hitByLine.has(h.i)) hitByLine.set(h.i,h); });
+  paintHits();
+  // 指摘の中身が変わっていなければ一覧は組み直さない（打鍵のたびの作り直しを避ける）
+  const sig=hits.map(h=>h.i+':'+h.kind+':'+h.st).join('|')+'|'+chkFilter+'|'+paused;
+  if(sig!==lastSig){ lastSig=sig; renderHits(); }
+  updateStatus();
+}
+function applyHit(d,i){
+  const h=hitByLine.get(i);
+  if(h){ d.classList.add('bad'); d.style.setProperty('--c',S.cfg.colors[h.kind]||'var('+KIND[h.kind].color+')'); }
+  else{ d.classList.remove('bad'); d.style.removeProperty('--c'); }
+}
+let lastBad=new Set();
+function paintHits(){
+  const now=new Set(hitByLine.keys());
+  const kids=ED.children;
+  lastBad.forEach(i=>{ if(!now.has(i)&&kids[i]){ kids[i].classList.remove('bad'); kids[i].style.removeProperty('--c'); } });
+  now.forEach(i=>{ if(kids[i]) applyHit(kids[i],i); });
+  lastBad=now;
+}
+function kindColor(k){ return S.cfg.colors[k]||getComputedStyle(document.documentElement).getPropertyValue(KIND[k].color); }
+function renderHits(){
+  const box=$('#sb-chk'); box.textContent='';
+  const row=el('div','row');
+  const pz=el('button','btn mini',paused?'停止中':'一時停止');
+  pz.onclick=()=>{paused=!paused;runCheck();renderHits()};
+  const cl=el('button','btn mini','解決済みを戻す');
+  cl.onclick=()=>{ST().done=[];save();runCheck()};
+  const fz=el('button','btn mini','まとめて伏字に');
+  fz.onclick=fixFusejiAll;
+  row.append(pz,cl,fz); box.append(row);
+  if(paused){ box.append(el('div','empty','チェックを止めています。上のボタンで再開します。')); return; }
+  if(!ST().check){ box.append(el('div','empty','この工程はリアルタイムでチェックしていません。上の「リアルタイムでチェックする」で切り替えられます。')); return; }
+  if(!hits.length){ box.append(el('div','empty','指摘はありません。')); return; }
+
+  const open={},done=[],exc=[];
+  hits.forEach(h=>{
+    if(h.st==='exc') exc.push(h);
+    else if(h.st==='done') done.push(h);
+    else (open[h.kind]=open[h.kind]||[]).push(h);
+  });
+  // ジャンルの選び分け
+  const pick=el('div','row');
+  const mkChip=(id,label,color,n)=>{
+    const on=chkFilter==='all'||chkFilter===id;
+    const b=el('button','btn mini'+(chkFilter===id?' on':''));
+    b.textContent=label+' '+n;
+    if(color&&chkFilter!==id){ b.style.borderLeft='4px solid '+color; }
+    b.style.opacity=on?'1':'.5';
+    b.onclick=()=>{ chkFilter=(chkFilter===id)?'all':id; lastSig=null; renderHits(); };
+    return b;
+  };
+  const total=hits.filter(h=>h.st==='open').length;
+  const allb=el('button','btn mini'+(chkFilter==='all'?' on':''));
+  allb.textContent='すべて '+total;
+  allb.onclick=()=>{ chkFilter='all'; lastSig=null; renderHits(); };
+  pick.append(allb);
+  KIND_ORDER.forEach(k=>{ if(open[k]) pick.append(mkChip(k,KIND[k].label,kindColor(k),open[k].length)); });
+  if(done.length) pick.append(mkChip('done','解決済み','#8a9199',done.length));
+  if(exc.length)  pick.append(mkChip('exc','例外','#8a9199',exc.length));
+  box.append(pick);
+
+  const show=id=>chkFilter==='all'||chkFilter===id;
+  let shown=0;
+  KIND_ORDER.forEach(k=>{
+    if(!open[k]||!show(k)) return;
+    shown+=open[k].length;
+    box.append(group(KIND[k].label,kindColor(k),open[k],true));
+  });
+  if(done.length&&show('done')){ shown+=done.length; box.append(group('解決済み','#8a9199',done,chkFilter==='done')); }
+  if(exc.length&&show('exc')){ shown+=exc.length; box.append(group('例外','#8a9199',exc,chkFilter==='exc')); }
+  if(!shown) box.append(el('div','empty','この種類の指摘はありません。'));
+}
+function group(label,color,arr,openDefault){
+  const d=el('details','grp'); d.open=openDefault;
+  const s=el('summary');
+  const sw=el('span','sw'); sw.style.background=color;
+  s.append(sw,el('span',null,label),el('span','n',String(arr.length)));
+  d.append(s);
+  const CAP=150;
+  arr.slice(0,CAP).forEach(h=>d.append(hitRow(h)));
+  if(arr.length>CAP){
+    const more=el('button','hit');
+    const g=el('button','go','… 残り'+(arr.length-CAP)+'件を出す');
+    g.onclick=()=>{ more.remove(); arr.slice(CAP).forEach(h=>d.append(hitRow(h))); };
+    more.append(g); d.append(more);
+  }
+  return d;
+}
+function hitRow(h){
+  const r=el('div','hit'+(h.st==='done'?' done':''));
+  const cb=el('input'); cb.type='checkbox'; cb.checked=h.st==='done'; cb.title='解決済みにする';
+  cb.onchange=()=>{
+    ST().done=(ST().done||[]).filter(x=>x!==h.key);
+    if(cb.checked) ST().done.push(h.key);
+    save(); runCheck();
+  };
+  const go=el('button','go');
+  go.append(el('span','ln-no',String(h.i+1)),document.createTextNode(h.msg));
+  const head=snip(shown(lines[h.i]||''),30);
+  if(head) go.append(el('span','head',head));
+  go.onclick=()=>focusLine(h.i,0);
+  if(h.kind==='fuseji'&&/伏字漏れ/.test(h.msg)){
+    const fx=el('button','ex','伏字に');
+    fx.title='この行を伏字にする';
+    fx.onclick=()=>fixFuseji(h.i);
+    r.append(fx);
+  }
+  const ex=el('button','ex',h.st==='exc'?'戻す':'例外');
+  ex.onclick=()=>{
+    ST().exc=(ST().exc||[]).filter(x=>x!==h.key);
+    if(h.st!=='exc') ST().exc.push(h.key);
+    save(); runCheck();
+  };
+  r.append(cb,go,ex); return r;
+}
+/** 指摘の出た行を伏字にする */
+function fixFuseji(i){
+  const isBody=lineType(lines[i])==='body';
+  const p=partsOf(lines[i]);
+  const fixed=applyFuseji(p.inner,isBody);
+  if(fixed===p.inner){ toast('伏せる箇所が見つかりません'); return; }
+  pushUndo(true);
+  lines[i]=buildRaw(p.bold,fixed);
+  renderAll(); afterEdit(); runCheck(); renderOutline();
+  focusLine(i,0);
+  toast('伏字にしました');
+}
+/** 指摘の出ている行をまとめて伏字にする */
+async function fixFusejiAll(){
+  const targets=[...new Set(hits.filter(h=>h.st==='open'&&h.kind==='fuseji'&&/伏字漏れ/.test(h.msg)).map(h=>h.i))];
+  if(!targets.length){ toast('伏字漏れの指摘はありません'); return; }
+  const box=el('div');
+  box.append(el('p',null,targets.length+'行を伏字にします。'));
+  const t=el('table','diff');
+  t.innerHTML='<tr><th>行</th><th>いま</th><th>あと</th></tr>'+targets.slice(0,100).map(i=>{
+    const p=partsOf(lines[i]);
+    return '<tr><td>'+(i+1)+'</td><td>'+snip(p.inner,26)+'</td><td>'+
+      snip(applyFuseji(p.inner,lineType(lines[i])==='body'),26)+'</td></tr>';
+  }).join('');
+  box.append(t);
+  if(await dialog('まとめて伏字にする',box,[{t:'取消',v:null},{t:'実行',v:'ok',primary:true}])!=='ok') return;
+  pushUndo(true);
+  let n=0;
+  targets.forEach(i=>{
+    const p=partsOf(lines[i]);
+    const f=applyFuseji(p.inner,lineType(lines[i])==='body');
+    if(f!==p.inner){ lines[i]=buildRaw(p.bold,f); n++; }
+  });
+  renderAll(); afterEdit(); runCheck(); renderOutline();
+  toast(n+'行を伏字にしました（Ctrl+Zで戻せます）');
+}
+function jumpNextHit(){
+  const open=hits.filter(h=>h.st==='open'); if(!open.length) return;
+  const i=curLineIndex();
+  focusLine((open.find(h=>h.i>i)||open[0]).i,0);
+}
+
+/* ================== 目印 ================== */
+const MARK_COLORS=['--mark1','--mark2','--mark3','--mark4','--mark5','--mark6'];
+const cvar=v=>getComputedStyle(document.documentElement).getPropertyValue(v);
+function markKey(i){
+  const t=lines[i]||''; let nth=0;
+  for(let k=0;k<i;k++) if(lines[k]===t) nth++;
+  return {text:t,nth};
+}
+function findMark(i){
+  const k=markKey(i);
+  return (ST().marks||[]).find(m=>m.text===k.text&&m.nth===k.nth);
+}
+let markIdxCache=null, markIdxKey='';
+function markLineIndex(m){
+  const key=lines.length+'\u0000'+(ST().marks||[]).length;
+  if(markIdxCache&&markIdxKey===key&&markIdxCache.has(m)) return markIdxCache.get(m);
+  if(!markIdxCache||markIdxKey!==key){ markIdxCache=new Map(); markIdxKey=key; }
+  let nth=0;
+  for(let i=0;i<lines.length;i++){ if(lines[i]===m.text){ if(nth===m.nth){ markIdxCache.set(m,i); return i; } nth++; } }
+  markIdxCache.set(m,-1); return -1;
+}
+function clearMarkCache(){ markIdxCache=null; }
+async function toggleMark(){
+  const i=curLineIndex(); if(i<0) return;
+  ST().marks=ST().marks||[];
+  const ex=findMark(i);
+  if(ex){
+    ST().marks=ST().marks.filter(m=>m!==ex);
+    save(); paintMarks(); renderMarks(); renderStages(); return;
+  }
+  const m=Object.assign(markKey(i),{c:S.cfg.markColor,note:''});
+  ST().marks.push(m);
+  save(); paintMarks(); renderMarks(); renderStages();
+  if(!S.cfg.askNote) return;
+  const box=el('div');
+  const ta=el('textarea'); ta.placeholder='メモ（空のままでも構いません）';
+  const chk=el('label');
+  const cb=el('input'); cb.type='checkbox';
+  chk.append(cb,document.createTextNode(' 今後は聞かない'));
+  box.append(el('p','note',snip(shown(lines[i]||''),34)||'（空行）'),ta,chk);
+  const v=await dialog('目印にメモを入れますか',box,[{t:'入れない',v:'no'},{t:'保存',v:'ok',primary:true}]);
+  if(cb.checked){ S.cfg.askNote=false; }
+  if(v==='ok'&&ta.value.trim()) m.note=ta.value.trim();
+  save(); renderMarks();
+}
+function applyMark(d,i){
+  const m=findMark(i);
+  if(m){ d.dataset.mark='1'; d.style.setProperty('--mc',cvar(MARK_COLORS[(m.c||1)-1])); }
+  else{ delete d.dataset.mark; d.style.removeProperty('--mc'); }
+}
+let lastMark=new Set();
+function paintMarks(){
+  const idx=new Set();
+  (ST().marks||[]).forEach(m=>{ const i=markLineIndex(m); if(i>=0) idx.add(i); });
+  const kids=ED.children;
+  lastMark.forEach(i=>{ if(!idx.has(i)&&kids[i]){ delete kids[i].dataset.mark; kids[i].style.removeProperty('--mc'); } });
+  idx.forEach(i=>{ if(kids[i]) applyMark(kids[i],i); });
+  lastMark=idx;
+}
+let markFilter=0;
+function renderMarks(){
+  const box=$('#sb-mark'); box.textContent='';
+  const bar=el('div','row');
+  MARK_COLORS.forEach((c,k)=>{
+    const b=el('button','cdot'+(S.cfg.markColor===k+1?' on':''));
+    b.style.background=cvar(c); b.title='この色で付ける';
+    b.onclick=()=>{S.cfg.markColor=k+1;save();renderMarks()};
+    bar.append(b);
+  });
+  const f=el('select');
+  f.innerHTML='<option value="0">すべて</option>'+MARK_COLORS.map((c,k)=>'<option value="'+(k+1)+'">色'+(k+1)+'</option>').join('');
+  f.value=String(markFilter); f.onchange=()=>{markFilter=+f.value;renderMarks()};
+  const clr=el('button','btn mini','絞り込み中を消去');
+  clr.onclick=async()=>{
+    if(!await confirmBox('目印の消去',markFilter?'色'+markFilter+'の目印を消します。':'この工程の目印をすべて消します。','消す')) return;
+    ST().marks=(ST().marks||[]).filter(m=>markFilter&&m.c!==markFilter);
+    save(); paintMarks(); renderMarks(); renderStages();
+  };
+  bar.append(f,clr); box.append(bar);
+
+  const ms=(ST().marks||[]).filter(m=>!markFilter||m.c===markFilter);
+  if(!ms.length){ box.append(el('div','empty','目印はありません。行の上でショートカットを押すと付きます。')); return; }
+  const lost=ms.filter(m=>markLineIndex(m)<0).length;
+  if(lost) box.append(el('div','row','目印を付けた行が '+lost+' 件見つかりません（削除された可能性があります）'));
+  ms.forEach(m=>{
+    const i=markLineIndex(m);
+    const row=el('div','mk-row'+(i<0?' lost':''));
+    const dot=el('button','cdot'); dot.style.background=cvar(MARK_COLORS[(m.c||1)-1]); dot.title='色を変える';
+    dot.onclick=()=>{m.c=(m.c%6)+1;save();paintMarks();renderMarks()};
+    const go=el('button','go');
+    go.append(el('span','ln-no',i<0?'—':String(i+1)),
+      document.createTextNode(i<0?'（行が見つかりません）':(snip(shown(m.text),30)||'（空行）')));
+    if(m.note) go.append(el('span','head',m.note));
+    go.onclick=()=>{ i>=0?focusLine(i,0):toast('この行は見つかりません'); };
+    const nt=el('button','btn mini','メモ');
+    nt.onclick=async()=>{
+      const inp=el('textarea'); inp.value=m.note||'';
+      if(await dialog('目印のメモ',inp,[{t:'取消',v:null},{t:'保存',v:'ok',primary:true}])==='ok'){
+        m.note=inp.value.trim(); save(); renderMarks();
+      }
+    };
+    const x=el('button','btn mini','×');
+    x.onclick=()=>{ST().marks=ST().marks.filter(z=>z!==m);save();paintMarks();renderMarks();renderStages()};
+    row.append(dot,go,nt,x); box.append(row);
+  });
+}
+function jumpMark(dir){
+  const ms=(ST().marks||[]).map(markLineIndex).filter(i=>i>=0).sort((a,b)=>a-b);
+  if(!ms.length) return;
+  const c=curLineIndex();
+  const t=dir>0?(ms.find(i=>i>c)??ms[0]):([...ms].reverse().find(i=>i<c)??ms[ms.length-1]);
+  focusLine(t,0);
+}
+
+/* ================== 見出し ================== */
+let backStack=[];
+function renderOutline(){
+  const box=$('#sb-out'); box.textContent='';
+  const items=outline(lines);
+  const bar=el('div','row');
+  const bk=el('button','btn mini','← 戻る');
+  bk.onclick=()=>{ const p=backStack.pop(); if(p!=null) focusLine(p,0); else toast('戻る先がありません'); };
+  bar.append(bk,el('span',null,items.length+' 項目')); box.append(bar);
+  if(!items.length){ box.append(el('div','empty','見出しとレス番号がありません。')); return; }
+  items.forEach(o=>{
+    const b=el('button','ol-row'+(o.kind==='head'?' head':''));
+    if(o.kind==='num'){ b.append(el('span','num',String(o.num)),document.createTextNode(o.who)); }
+    else b.textContent=o.text;
+    b.onclick=()=>{ backStack.push(curLineIndex()); focusLine(o.i,0); };
+    box.append(b);
+  });
+}
+/* アンカー先へ移動（ショートカットから呼ぶ） */
+function jumpAnchor(){
+  const i=curLineIndex(); if(i<0) return;
+  // カーソル行か、その投稿の中にある >>N を探す
+  let m=null;
+  for(let k=i;k>=Math.max(0,i-8);k--){
+    m=strip(lines[k]||'').match(/>>(\d+)/);
+    if(m) break;
+    if(k<i&&lineType(lines[k])!=='thread') break;
+  }
+  if(!m){ toast('この行にアンカー（>>番号）がありません'); return; }
+  const t=outline(lines).find(o=>o.kind==='num'&&o.num===+m[1]);
+  if(!t){ toast('>>'+m[1]+' は本文にありません'); return; }
+  backStack.push(i); focusLine(t.i,0);
+  toast('>>'+m[1]+' へ移動しました（見出しの［← 戻る］で戻れます）');
+}
+
+/* ================== 検索と置換 ================== */
+let findRes=[],findQ='';
+function openFind(){ showSide('find'); $('#find-q') && $('#find-q').focus(); }
+function renderFind(){
+  const box=$('#sb-find'); box.textContent='';
+  const bar=el('div','row');
+  const q=el('input'); q.type='text'; q.id='find-q'; q.placeholder='探す文字'; q.value=findQ; q.style.flex='1';
+  const rp=el('input'); rp.type='text'; rp.id='find-r'; rp.placeholder='置きかえる文字'; rp.style.flex='1';
+  const go=el('button','btn mini','探す');
+  const one=el('button','btn mini','次を置換');
+  const all=el('button','btn mini','すべて置換');
+  const doFind=()=>{
+    findQ=q.value; findRes=findAll(lines,findQ,{});
+    renderFindList(); paintFound();
+  };
+  go.onclick=doFind;
+  q.onkeydown=e=>{ if(e.key==='Enter') doFind(); };
+  all.onclick=async()=>{
+    if(!q.value) return;
+    const r=replaceAll(lines,q.value,rp.value,{});
+    if(!r.count){ toast('見つかりませんでした'); return; }
+    if(!await confirmBox('すべて置換',r.count+'件を「'+rp.value+'」に置きかえます。','置換する')) return;
+    pushUndo(true); lines=r.lines; renderAll(); afterEdit(); runCheck(); renderOutline();
+    toast(r.count+'件を置きかえました');
+  };
+  one.onclick=()=>{
+    if(!q.value) return;
+    if(findQ!==q.value){ doFind(); }
+    if(!findRes.length){ toast('見つかりませんでした'); return; }
+    // カーソルより後ろの最初の1件を置きかえる
+    const cur=curLineIndex();
+    let hit=findRes.find(r=>r.i>cur);
+    if(!hit) hit=findRes.find(r=>r.i===cur)||findRes[0];
+    const raw=lines[hit.i];
+    const p=partsOf(raw);
+    const at=p.inner.indexOf(q.value);
+    if(at<0){ doFind(); toast('その行に見つかりません'); return; }
+    pushUndo(true);
+    lines[hit.i]=buildRaw(p.bold,p.inner.slice(0,at)+rp.value+p.inner.slice(at+q.value.length));
+    renderAll(); afterEdit(); runCheck(); renderOutline();
+    doFind();
+    focusLine(hit.i,0);
+    const left=findRes.length;
+    toast(left?('1件置きかえました。残り'+left+'件'):'すべて置きかえました');
+  };
+  bar.append(q,go); box.append(bar);
+  const bar2=el('div','row'); bar2.append(rp,one,all); box.append(bar2);
+  const list=el('div'); list.id='find-list'; box.append(list);
+  renderFindList();
+}
+function renderFindList(){
+  const box=$('#sb-find');
+  let list=box.querySelector('#find-list');
+  if(!list){ list=el('div'); list.id='find-list'; box.append(list); }
+  list.textContent='';
+  if(!findQ){ list.append(el('div','empty','探す文字を入れてください。')); return; }
+  if(!findRes.length){ list.append(el('div','empty','見つかりませんでした。')); return; }
+  list.append(el('div','row',findRes.length+' 件'));
+  findRes.slice(0,300).forEach(r=>{
+    const b=el('button','ol-row');
+    b.append(el('span','num',String(r.i+1)),document.createTextNode(snip(shown(lines[r.i]),34)));
+    b.onclick=()=>focusLine(r.i,0);
+    list.append(b);
+  });
+}
+function paintFound(){
+  const set=new Set(findRes.map(r=>r.i));
+  for(let i=0;i<ED.children.length;i++) ED.children[i].classList.toggle('found',set.has(i));
+}
+
+/* ================== 読み上げ ================== */
+/* ================== VOICEVOX ==================
+ * 通信を行うのはこのクラスだけに閉じる。
+ * 将来ローカルプロキシやElectronへ移すときは request() の中だけを差し替えればよい。 */
+const VV_HOSTS=['http://127.0.0.1:50021','http://localhost:50021','http://[::1]:50021'];
+
+class VoicevoxClient{
+  constructor(){
+    this.base=null;          // 実際に通じた接続先
+    this.fixed=null;         // 明示指定された接続先
+    this.version=null;
+    this.speakers=[];
+    this.log=[];             // 通信の記録（保存できる）
+    this.lastError=null;
+    this.hostResults=[];     // ホストごとの成否
+  }
+  setUrl(u){ this.fixed=(u||'').trim()||null; this.base=null; }
+  /** 試す接続先の並び。明示指定が最優先。ポートは引き継ぐ。 */
+  candidates(){
+    if(this.fixed){
+      let port='50021';
+      try{ const u=new URL(this.fixed); if(u.port) port=u.port; }catch(e){}
+      const rest=VV_HOSTS.map(h=>h.replace(/:\d+$/,':'+port)).filter(h=>h!==this.fixed);
+      return [this.fixed,...rest];
+    }
+    return VV_HOSTS.slice();
+  }
+  async request(base,path,opt,timeout){
+    const url=base+path;
+    const t0=Date.now();
+    const ac=new AbortController();
+    const timer=setTimeout(()=>ac.abort(),timeout||20000);
+    const rec={at:new Date().toISOString(),url,method:(opt&&opt.method)||'GET'};
+    try{
+      const res=await fetch(url,Object.assign({signal:ac.signal},opt||{}));
+      rec.status=res.status; rec.ms=Date.now()-t0;
+      this.log.push(rec);
+      if(!res.ok){ const e=new Error('HTTP '+res.status); e.kind='http'; e.status=res.status; throw e; }
+      return res;
+    }catch(e){
+      rec.ms=Date.now()-t0;
+      rec.error=(e&&e.name)+': '+(e&&e.message);
+      if(!rec.status) rec.kind=(e&&e.name==='AbortError')?'timeout':(e.kind||'network');
+      this.log.push(rec);
+      if(!e.kind) e.kind=(e&&e.name==='AbortError')?'timeout':'network';
+      throw e;
+    }finally{ clearTimeout(timer); }
+  }
+  /** 段階接続：まず /version だけを試し、通った接続先を覚える。 */
+  async connect(){
+    this.hostResults=[]; this.lastError=null;
+    for(const base of this.candidates()){
+      try{
+        const res=await this.request(base,'/version',null,6000);
+        this.version=(await res.text()).replace(/"/g,'').trim();
+        this.base=base;
+        this.hostResults.push({base,ok:true});
+        await this.loadSpeakers();
+        return {ok:true,base,version:this.version,speakers:this.speakers.length};
+      }catch(e){
+        this.hostResults.push({base,ok:false,kind:e.kind,message:e.message});
+        this.lastError=e;
+      }
+    }
+    return {ok:false,reason:this.diagnose()};
+  }
+  async loadSpeakers(){
+    const res=await this.request(this.base,'/speakers',null,10000);
+    const raw=await res.json();
+    this.speakers=[];
+    raw.forEach(sp=>(sp.styles||[]).forEach(st=>{
+      this.speakers.push({id:st.id,name:sp.name+'（'+st.name+'）',uuid:sp.speaker_uuid});
+    }));
+  }
+  async audioQuery(text,id){
+    const res=await this.request(this.base,'/audio_query?text='+encodeURIComponent(text)+'&speaker='+id,
+      {method:'POST'},20000);
+    return res.json();
+  }
+  async synthesis(query,id){
+    const res=await this.request(this.base,'/synthesis?speaker='+id,
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(query)},120000);
+    return res.arrayBuffer();
+  }
+  /** 失敗の理由を推定する。断定はしない。 */
+  diagnose(){
+    const mac=/Mac/i.test(navigator.platform||navigator.userAgent||'');
+    const file=location.protocol==='file:';
+    const kinds=this.hostResults.map(h=>h.kind);
+    if(kinds.every(k=>k==='network')){
+      if(mac) return {cause:'ブラウザからEngineへ届いていません（推定）',
+        detail:'VOICEVOX自体は起動している可能性があります。Macでは、ブラウザからローカルのEngineへアクセスする際にCORSやローカルアクセス制限で遮られることが知られています。'+
+          (file?'いまはファイルを直接開いて実行しているため、その制限を受けやすい状態です。':''),
+        how:['VOICEVOXが起動しているか確認する','VOICEVOXの設定でCORSの許可（マルチエンジン／実験的機能）を確認する','それでも通らない場合はブラウザ内蔵の音声を使う']};
+      return {cause:'Engineに接続できません（推定）',
+        detail:'指定した接続先のどれにも届きませんでした。VOICEVOXが起動していないか、ポートが違う可能性があります。',
+        how:['VOICEVOXを起動する','設定の接続先が http://127.0.0.1:50021 になっているか確認する','ポートを変えている場合はその番号に合わせる']};
+    }
+    if(kinds.includes('timeout')) return {cause:'応答がありません（推定）',
+      detail:'接続はできましたが、時間内に応答が返りませんでした。',how:['VOICEVOXの画面が固まっていないか確認する','起動し直す']};
+    const http=this.hostResults.find(h=>h.kind==='http');
+    if(http) return {cause:'Engineがエラーを返しました（推定）',detail:http.message,how:['VOICEVOXの版を確認する']};
+    return {cause:'原因を特定できませんでした',detail:'',how:['通信ログを保存して確認する']};
+  }
+  logText(){
+    const L=['台本スタジオ VOICEVOX 通信ログ','日時: '+new Date().toLocaleString('ja-JP'),
+      'Platform: '+(navigator.platform||''),'UserAgent: '+navigator.userAgent,
+      'Origin: '+location.origin,'Protocol: '+location.protocol,
+      '接続先: '+(this.base||'（未接続）'),'版: '+(this.version||'—'),
+      '話者: '+this.speakers.length+'件','',
+      '--- ホストごとの結果 ---'];
+    this.hostResults.forEach(h=>L.push(h.base+'  '+(h.ok?'成功':'失敗（'+h.kind+'）'+(h.message?' '+h.message:''))));
+    L.push('','--- 通信の記録 ---');
+    this.log.forEach(r=>L.push([r.at,r.method,r.url,r.status!=null?('status '+r.status):'',r.ms+'ms',r.error||''].filter(Boolean).join('  ')));
+    if(!this.base){ const d=this.diagnose();
+      L.push('','--- 推定 ---','推定原因: '+d.cause,'推定根拠: '+d.detail,'対処: '+(d.how||[]).join(' / ')); }
+    return L.join('\n');
+  }
+}
+const vv=new VoicevoxClient();
+
+/* ---- VOICEVOXでの読み上げ ---- */
+const vvCache=new Map();          // 合成した音声の使い回し
+function vvKey(q){
+  const sp=S.cfg.speak;
+  return q.type+'\u0000'+q.text+'\u0000'+(q.type==='body'?sp.vvBody:sp.vvThread)+
+         '\u0000'+sp.rate+'\u0000'+sp.pitch;
+}
+const vvPending=new Map();     // 合成中のもの（二重に投げない）
+function vvBuild(q){
+  const sp=S.cfg.speak;
+  const id=(q.type==='body'?sp.vvBody:sp.vvThread);
+  const key=vvKey(q);
+  if(vvCache.has(key)) return Promise.resolve(vvCache.get(key));
+  if(vvPending.has(key)) return vvPending.get(key);
+  const p=(async()=>{
+    const query=await vv.audioQuery(q.text,id);
+    query.speedScale=sp.rate||1;
+    query.pitchScale=Math.max(-0.15,Math.min(0.15,((sp.pitch||1)-1)*0.3));
+    query.volumeScale=1;
+    const buf=await vv.synthesis(query,id);
+    if(vvCache.size>300) vvCache.clear();
+    vvCache.set(key,buf);
+    return buf;
+  })();
+  vvPending.set(key,p);
+  p.catch(()=>{}).then(()=>vvPending.delete(key));
+  return p;
+}
+async function vvSpeak(q){ return vvBuild(q); }
+/** 先の行を裏で作っておく。読んでいる間に次が仕上がるようにする。 */
+const VV_AHEAD=3;
+function vvPrefetch(from,gen){
+  if(S.cfg.speak.engine!=='voicevox'||!vv.base) return;
+  for(let k=from;k<Math.min(from+VV_AHEAD,speakQ.length);k++){
+    if(gen!==speakGen) return;
+    vvBuild(speakQ[k]).catch(()=>{});
+  }
+}
+function playBuffer(buf,volume){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(new Blob([buf],{type:'audio/wav'}));
+    const a=new Audio();
+    a.preload='auto';
+    a.src=url;
+    a.volume=Math.max(0,Math.min(1,volume==null?1:volume));
+    curAudio=a;
+    let ended=false;
+    const done=()=>{ if(ended) return; ended=true; URL.revokeObjectURL(url); curAudio=null; res(); };
+    a.onended=done;
+    a.onerror=()=>{ if(ended) return; ended=true; URL.revokeObjectURL(url); curAudio=null; rej(new Error('再生できません')); };
+    const go=()=>a.play().catch(e=>{ if(!ended){ ended=true; URL.revokeObjectURL(url); curAudio=null; rej(e); } });
+    if(a.readyState>=3) go(); else { a.oncanplay=go; a.load(); }
+  });
+}
+
+let speaking=false,speakQ=[],speakIdx=0,speakVoices=[],curAudio=null,speakGen=0;
+function loadVoices(){ speakVoices=speechSynthesis.getVoices().filter(v=>/ja|JP/i.test(v.lang)); }
+speechSynthesis.onvoiceschanged=loadVoices; loadVoices();
+
+function toggleSpeak(){ speaking?stopSpeak():startSpeak(); }
+async function startSpeak(){
+  speakQ=speakQueue(lines,S.cfg.speak.mode,S.cfg.speak.dict);
+  if(!speakQ.length){ toast('読み上げる行がありません'); return; }
+  const c=curLineIndex();
+  if(c>0){ const k=speakQ.findIndex(q=>q.i>=c); speakIdx=k<0?0:k; }
+  else speakIdx=Math.min(ST().speakAt||0,speakQ.length-1);
+
+  if(S.cfg.speak.engine==='voicevox'&&!vv.base){
+    toast('VOICEVOXに接続しています…');
+    const r=await vv.connect();
+    if(!r.ok){ await vvTrouble(r.reason); return; }
+  }
+  speaking=true; speakGen++; $('#b-speak').classList.add('on');
+  vvPrefetch(speakIdx,speakGen);        // 最初の数件を先に用意する
+  nextSpeak(speakGen);
+}
+function stopSpeak(){
+  speaking=false; speakGen++;
+  try{ speechSynthesis.cancel(); }catch(e){}
+  if(curAudio){ try{ curAudio.pause(); }catch(e){} curAudio=null; }
+  $('#b-speak').classList.remove('on');
+  [...ED.children].forEach(d=>d.classList.remove('play'));
+  ST().speakAt=speakIdx; save();
+  if(speakQ[speakIdx]) toast((speakQ[speakIdx].i+1)+'行目で止めました。次はここから始めます');
+}
+function highlightSpeak(i){
+  [...ED.children].forEach(d=>d.classList.remove('play'));
+  const d=ED.children[i];
+  if(d){ d.classList.add('play'); d.scrollIntoView({block:'center'}); }
+}
+async function nextSpeak(gen){
+  if(!speaking||gen!==speakGen) return;
+  if(speakIdx>=speakQ.length){ ST().speakAt=0; save(); stopSpeak(); toast('最後まで読みました'); return; }
+  const q=speakQ[speakIdx];
+  // 直前に読んだ行との間にある空行の数だけ、間を空ける
+  const prev=speakQ[speakIdx-1];
+  if(prev){
+    let blanks=0;
+    for(let k=prev.i+1;k<q.i;k++) if(String(lines[k]||'').trim()==='') blanks++;
+    const wait=blanks*(S.cfg.speak.gapMs||0);
+    if(wait>0){
+      vvPrefetch(speakIdx,gen);         // 間を空けている時間で次を作る
+      await new Promise(r=>setTimeout(r,wait));
+      if(!speaking||gen!==speakGen) return;
+    }
+  }
+  highlightSpeak(q.i);
+  if(S.cfg.speak.engine==='voicevox'){
+    try{
+      const p=vvSpeak(q);
+      vvPrefetch(speakIdx+1,gen);       // 待っている間に先を作る
+      const buf=await p;
+      if(!speaking||gen!==speakGen) return;
+      vvPrefetch(speakIdx+1,gen);
+      await playBuffer(buf,S.cfg.speak.volume);
+    }catch(e){
+      if(!speaking||gen!==speakGen) return;
+      stopSpeak();
+      await vvTrouble(vv.base?{cause:'読み上げに失敗しました',detail:String(e&&e.message||e),
+        how:['VOICEVOXが起動したままか確認する','接続を確かめ直す']}:vv.diagnose());
+      return;
+    }
+    if(!speaking||gen!==speakGen) return;
+    speakIdx++; ST().speakAt=speakIdx;
+    nextSpeak(gen);
+    return;
+  }
+  const u=new SpeechSynthesisUtterance(q.text);
+  u.lang='ja-JP';
+  u.rate=S.cfg.speak.rate||1; u.volume=S.cfg.speak.volume??1; u.pitch=S.cfg.speak.pitch||1;
+  const want=q.type==='body'?S.cfg.speak.bodyVoice:S.cfg.speak.threadVoice;
+  const v=speakVoices.find(x=>x.name===want)||speakVoices[0];
+  if(v) u.voice=v;
+  u.onend=()=>{ if(gen!==speakGen) return; speakIdx++; ST().speakAt=speakIdx; nextSpeak(gen); };
+  u.onerror=()=>{ if(gen!==speakGen) return; speakIdx++; nextSpeak(gen); };
+  speechSynthesis.speak(u);
+}
+/** 接続できないときの案内。原因の推定と対処を出し、ログも保存できるようにする。 */
+async function vvTrouble(reason){
+  const box=el('div');
+  box.append(el('p',null,reason.cause));
+  if(reason.detail) box.append(el('p','note',reason.detail));
+  if(reason.how&&reason.how.length){
+    const ol=el('ol'); reason.how.forEach(h=>ol.append(el('li',null,h))); box.append(ol);
+  }
+  const v=await dialog('VOICEVOXにつながりません',box,[
+    {t:'閉じる',v:null},
+    {t:'通信ログを保存',v:'log'},
+    {t:'ブラウザ内蔵の音声で読む',v:'web',primary:true}
+  ]);
+  if(v==='log') saveVvLog();
+  if(v==='web'){ S.cfg.speak.engine='web'; save(); startSpeak(); }
+}
+function saveVvLog(){
+  const a=el('a');
+  a.href=URL.createObjectURL(new Blob([vv.logText()],{type:'text/plain;charset=utf-8'}));
+  a.download='voicevox_log_'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'')+'.txt';
+  a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+}
+
+/* ================== 入出力 ================== */
+function fontIsDoc(){ return S.cfg.font===DOC_FONT_VALUE; }
+async function copyMenu(){
+  const box=el('div');
+  box.append(el('p','note','［書式付き］はドキュメントにそのまま貼れます。［記号つき］はメモ帳やAIに渡す用です。'));
+  if(!fontIsDoc()){
+    const w=el('p','note','表示フォントが Arial ではありません。'+
+      'ドキュメントの既定は Arial のため、貼り付け後の見た目がここでの表示と変わります。'+
+      '（書式付きコピーには Arial を指定して書き出します）');
+    w.style.color='var(--warn)'; box.append(w);
+  }
+  const v=await dialog('コピー',box,[
+    {t:'取消',v:null},{t:'プレーン',v:'plain'},{t:'記号つき',v:'txt'},{t:'書式付き',v:'html',primary:true}
+  ]);
+  if(!v) return;
+  const rg=selectedRange();
+  const src=(rg&&rg[0]!==rg[1])?lines.slice(rg[0],rg[1]+1):lines;
+  await putClipboard(src,v);
+}
+/** 書式つきでクリップボードへ。
+ *  実際に選択したものを複製して copy を起こす方式を先に試す。
+ *  この方式は許可も画面の焦点も要らないため、ドキュメントへ最も確実に渡る。 */
+function copyRich(html,text){
+  const host=el('div');
+  host.setAttribute('contenteditable','true');
+  host.style.cssText='position:fixed;left:-9999px;top:0;width:1px;height:1px;overflow:hidden;white-space:pre-wrap';
+  host.innerHTML=html;
+  document.body.append(host);
+  const sel=getSelection();
+  const saved=sel.rangeCount?sel.getRangeAt(0).cloneRange():null;
+  const r=document.createRange(); r.selectNodeContents(host);
+  sel.removeAllRanges(); sel.addRange(r);
+  let done=false;
+  const h=e=>{
+    e.stopPropagation(); e.preventDefault();
+    e.clipboardData.setData('text/html',html);
+    e.clipboardData.setData('text/plain',text);
+    done=true;
+  };
+  document.addEventListener('copy',h,true);
+  try{ document.execCommand('copy'); }catch(e){}
+  document.removeEventListener('copy',h,true);
+  host.remove();
+  sel.removeAllRanges(); if(saved) sel.addRange(saved);
+  return done;
+}
+async function putClipboard(src,kind){
+  const text=kind==='plain'?src.map(strip).join('\n'):src.join('\n');
+  if(kind==='txt'||kind==='plain'){
+    try{ await navigator.clipboard.writeText(text); }
+    catch(e){ if(!copyRich(text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\n/g,'<br>'),text)){ toast('コピーできませんでした'); return; } }
+    toast(kind==='txt'?'記号つきでコピーしました':'プレーンでコピーしました');
+    return;
+  }
+  const html=scriptToHtml(src,S.cfg.lh);
+  if(copyRich(html,src.join('\n'))){ toast('書式付きでコピーしました。ドキュメントに貼れます'); return; }
+  try{
+    await navigator.clipboard.write([new ClipboardItem({
+      'text/html':new Blob([html],{type:'text/html'}),
+      'text/plain':new Blob([src.join('\n')],{type:'text/plain'})
+    })]);
+    toast('書式付きでコピーしました。ドキュメントに貼れます');
+  }catch(e){ toast('コピーできませんでした'); }
+}
+/** いま選んでいる範囲を、記号つきの行の配列として取り出す。
+ *  行の一部だけを選んでいる場合はその部分だけを返す。 */
+function selectedRaw(){
+  const sel=getSelection();
+  if(!sel.rangeCount||sel.isCollapsed) return null;
+  const r=sel.getRangeAt(0);
+  const idx=n=>{ if(n===ED) return null; while(n&&n.parentNode!==ED) n=n.parentNode; return n?[...ED.children].indexOf(n):-1; };
+  let a=idx(r.startContainer), b=idx(r.endContainer);
+  if(a===null) a=0;
+  if(b===null) b=lines.length-1;
+  if(a<0||b<0) return null;
+  // 各行の中での位置を出す
+  const posIn=(li,node,offset)=>{
+    const d=ED.children[li]; if(!d) return 0;
+    const pre=r.cloneRange(); pre.selectNodeContents(d);
+    try{ pre.setEnd(node,offset); }catch(e){ return shown(lines[li]).length; }
+    return pre.toString().length;
+  };
+  const s0=posIn(a,r.startContainer,r.startOffset);
+  const s1=posIn(b,r.endContainer,r.endOffset);
+  const out=[];
+  for(let i=a;i<=b;i++){
+    const p=partsOf(lines[i]);
+    if(MODE()==='marks'){
+      let from=0,to=p.inner.length;
+      if(i===a) from=innerOffset(p.inner,s0,MODE());
+      if(i===b) to=innerOffset(p.inner,s1,MODE());
+      out.push(buildRaw(p.bold,p.inner.slice(from,to)));
+    }else{
+      const ch=parseInner(p.inner);
+      const from=i===a?s0:0, to=i===b?s1:ch.length;
+      out.push(buildRaw(p.bold,serializeInner(ch.slice(from,to))));
+    }
+  }
+  return {lines:out,a,b,s0,s1};
+}
+/* アプリ内で最後に出したもの。貼るときに書式の元として使う */
+let lastClip=null;
+function putSelectionOnClipboard(e){
+  const sr=selectedRaw();
+  if(!sr) return null;
+  const src=sr.lines;
+  lastClip={plain:(MODE()==='marks'?src.join('\n'):src.map(strip).join('\n')),raw:src.slice()};
+  e.preventDefault();
+  e.clipboardData.setData('text/plain',MODE()==='marks'?src.join('\n'):src.map(strip).join('\n'));
+  e.clipboardData.setData('text/html',scriptToHtml(src,S.cfg.lh));
+  return sr;
+}
+/* Ctrl+C は表示モードに合わせる：記号なし表示なら書式付き、記号表示なら記号つき */
+ED.addEventListener('copy',e=>{ putSelectionOnClipboard(e); });
+ED.addEventListener('cut',e=>{
+  const sr=putSelectionOnClipboard(e);
+  if(!sr) return;
+  pushUndo(true);
+  const pa=partsOf(lines[sr.a]), pb=partsOf(lines[sr.b]);
+  const head=MODE()==='marks'?pa.inner.slice(0,innerOffset(pa.inner,sr.s0,MODE()))
+                             :serializeInner(parseInner(pa.inner).slice(0,sr.s0));
+  const tail=MODE()==='marks'?pb.inner.slice(innerOffset(pb.inner,sr.s1,MODE()))
+                             :serializeInner(parseInner(pb.inner).slice(sr.s1));
+  lines.splice(sr.a,sr.b-sr.a+1,buildRaw(pa.bold||pb.bold,head+tail));
+  renderAll(); afterEdit(); runCheck(); renderOutline();
+  focusLine(sr.a,shown(buildRaw(pa.bold,head)).length);
+});
+async function pasteIn(){
+  // Ctrl+V と同じ道筋にする。書式と素のテキストを必ず同じ項目から取り出し、
+  // 片方だけで判断しない（素のテキストが取れないと空行が落ちるため）。
+  let items=null;
+  try{ items=await navigator.clipboard.read(); }catch(e){ items=null; }
+  try{
+    for(const it of (items||[])){
+      let html='',txt='';
+      if(it.types.includes('text/html')) html=await (await it.getType('text/html')).text();
+      if(it.types.includes('text/plain')) txt=await (await it.getType('text/plain')).text();
+      if(!html&&!txt) continue;
+      insertText(pickPaste(html,txt));
+      return;
+    }
+    const t=await navigator.clipboard.readText();
+    if(t) insertText(pickPaste('',t));
+    else toast('クリップボードが空です');
+  }catch(e){
+    toast('貼り付けできません。エディタの上で Ctrl+V を使ってください');
+  }
+}
+
+function saveFile(){
+  const name=(W().name+'_'+ST().name).replace(/[\\/:*?"<>|]/g,'_');
+  const a=el('a');
+  a.href=URL.createObjectURL(new Blob([lines.join('\n')],{type:'text/plain;charset=utf-8'}));
+  a.download=name+'.txt'; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),3000);
+}
+$('#filein').onchange=async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const t=await f.text();
+  if(f.name.endsWith('.json')){
+    try{ S.works.push(JSON.parse(t)); S.aw=S.works.length-1; await migrateToBig(); save(); renderWorks(); loadStage(); }
+    catch(err){ toast('読み込めません'); }
+  }else{
+    W().stages.push(newStage(f.name.replace(/\.txt$/,''),t));
+    W().as=W().stages.length-1; save(); loadStage();
+  }
+  e.target.value='';
+};
+
+/* ================== 大きい保存領域 ==================
+ * 本文と設定は今までどおり小さい領域（約5MB）に置き、
+ * 全文の複製を何度も持つ「履歴」と「自動保存」だけを大きい領域（IndexedDB）へ移す。
+ * 大きい領域が使えない環境では、小さい領域に退避して動き続ける。 */
+const BIG={
+  db:null, ok:false, ready:null,
+  open(){
+    if(this.ready) return this.ready;
+    this.ready=new Promise(res=>{
+      try{
+        if(!window.indexedDB){ res(false); return; }
+        const r=indexedDB.open('daihon-studio',1);
+        r.onupgradeneeded=()=>{ if(!r.result.objectStoreNames.contains('kv')) r.result.createObjectStore('kv'); };
+        r.onsuccess=()=>{ this.db=r.result; this.ok=true; res(true); };
+        r.onerror=()=>res(false);
+        r.onblocked=()=>res(false);
+      }catch(e){ res(false); }
+    });
+    return this.ready;
+  },
+  _tx(mode,fn){
+    return new Promise(res=>{
+      try{
+        const tx=this.db.transaction('kv',mode), st=tx.objectStore('kv');
+        const q=fn(st);
+        tx.oncomplete=()=>res(q?q.result:true);
+        tx.onerror=()=>res(undefined);
+        tx.onabort=()=>res(undefined);
+      }catch(e){ res(undefined); }
+    });
+  },
+  async get(k){
+    await this.open();
+    if(!this.ok){ try{ return JSON.parse(localStorage.getItem('daihon-kv:'+k)); }catch(e){ return undefined; } }
+    return this._tx('readonly',st=>st.get(k));
+  },
+  async set(k,v){
+    await this.open();
+    if(!this.ok){
+      try{ localStorage.setItem('daihon-kv:'+k,JSON.stringify(v)); return true; }
+      catch(e){ return false; }
+    }
+    const r=await this._tx('readwrite',st=>st.put(v,k));
+    return r!==undefined;
+  },
+  async del(k){
+    await this.open();
+    if(!this.ok){ localStorage.removeItem('daihon-kv:'+k); return true; }
+    return this._tx('readwrite',st=>st.delete(k));
+  },
+  async keys(){
+    await this.open();
+    if(!this.ok){
+      const out=[];
+      for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k&&k.startsWith('daihon-kv:')) out.push(k.slice(10)); }
+      return out;
+    }
+    const r=await this._tx('readonly',st=>st.getAllKeys());
+    return r||[];
+  }
+};
+const VER_MAX=50;                    // 1工程あたりの履歴の上限
+const SNAP_MAX=10;                   // 自動保存の件数
+const verKey=s=>'ver:'+s.id;
+async function getVersions(s){ const v=await BIG.get(verKey(s)); return Array.isArray(v)?v:[]; }
+async function setVersions(s,arr){
+  if(!arr.length) return BIG.del(verKey(s));
+  return BIG.set(verKey(s),arr.slice(0,VER_MAX));
+}
+async function getSnaps(){ const v=await BIG.get('snap'); return Array.isArray(v)?v:[]; }
+
+/** 起動時に一度だけ：小さい領域にあった履歴と自動保存を大きい領域へ移す */
+async function migrateToBig(){
+  await BIG.open();
+  let moved=0;
+  for(const w of S.works){
+    for(const s of w.stages){
+      if(!s.id) s.id=uid();
+      if(Array.isArray(s.versions)&&s.versions.length){
+        const cur=await getVersions(s);
+        await setVersions(s,s.versions.concat(cur));
+        moved+=s.versions.length;
+      }
+      delete s.versions;
+    }
+  }
+  try{
+    const old=JSON.parse(localStorage.getItem('daihon-studio-snap')||'null');
+    if(Array.isArray(old)&&old.length){
+      const cur=await getSnaps();
+      await BIG.set('snap',old.concat(cur).slice(0,SNAP_MAX));
+    }
+    localStorage.removeItem('daihon-studio-snap');
+  }catch(e){}
+  if(moved||true){
+    try{ localStorage.setItem(LS,JSON.stringify(S)); }catch(e){}
+  }
+  // 消えた工程の履歴を片付ける
+  await purgeOrphans();
+  // 大きい領域を勝手に消されないよう、ブラウザにお願いしておく
+  try{ if(navigator.storage&&navigator.storage.persist) navigator.storage.persist(); }catch(e){}
+  if(moved) toast('履歴'+moved+'件を大きい保存領域へ移しました');
+  checkCapacity(true);
+  return moved;
+}
+async function purgeOrphans(){
+  const ids=new Set();
+  S.works.forEach(w=>w.stages.forEach(s=>ids.add('ver:'+s.id)));
+  let n=0;
+  for(const k of await BIG.keys()){
+    if(String(k).startsWith('ver:')&&!ids.has(k)){ await BIG.del(k); n++; }
+  }
+  return n;
+}
+
+/* ---- 容量 ---- */
+const SMALL_LIMIT=5*1024*1024;       // 小さい領域の目安（バイト）
+function smallUsed(){
+  let n=0;
+  try{ for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); n+=(k.length+(localStorage.getItem(k)||'').length)*2; } }catch(e){}
+  return n;
+}
+const sizeOf=v=>JSON.stringify(v||'').length*2;
+const fmtB=n=>n<1024?n+'B':n<1024*1024?(n/1024).toFixed(0)+'KB':(n/1024/1024).toFixed(1)+'MB';
+let warnedCap=false;
+/** 小さい領域が8割を超えたら知らせる */
+function checkCapacity(quiet){
+  const u=smallUsed();
+  const r=u/SMALL_LIMIT;
+  if(r>=0.8&&!warnedCap){
+    warnedCap=true;
+    toast('保存領域が'+Math.round(r*100)+'%まで埋まっています。履歴 →「容量と整理」で確かめてください');
+  }
+  return r;
+}
+
+/* ---- 保存：失敗したら整理の画面へ案内する ---- */
+function save(){
+  clearTimeout(saveT);
+  saveT=setTimeout(()=>{
+    S.cfg.dict={approved:DICT.approved,headDeny:DICT.headDeny,headExempt:DICT.headExempt,
+                dupAllow:DICT.dupAllow,dupCommon:DICT.dupCommon,dupExtra:DICT.dupExtra,
+                nonJoyo:DICT.nonJoyo,
+                fusejiChar:DICT.fusejiChar,fusejiWord:DICT.fusejiWord,
+                kanjiExempt:DICT.kanjiExempt,kanjiCaution:DICT.kanjiCaution,proper:DICT.proper};
+    try{ localStorage.setItem(LS,JSON.stringify(S)); checkCapacity(); }
+    catch(e){
+      toast('保存できません（容量超過）。整理の画面を開きます');
+      versionMenu('cap');
+    }
+  },600);
+}
+/* 自動保存（直近10件）は大きい領域へ */
+function snapshot(){
+  clearTimeout(snapT);
+  snapT=setTimeout(async()=>{
+    const a=await getSnaps();
+    a.unshift({t:Date.now(),w:W().name,s:ST().name,text:lines.join('\n')});
+    await BIG.set('snap',a.slice(0,SNAP_MAX));
+  },20000);
+}
+
+/* ================== 履歴 ================== */
+/** tab: 'ver'（この工程の履歴）／'snap'（自動保存）／'cap'（容量と整理） */
+async function versionMenu(tab){
+  await BIG.open();
+  const box=el('div');
+  box.innerHTML='<div class="tabs"><button data-p="ver">この工程の履歴</button>'+
+    '<button data-p="snap">自動保存</button><button data-p="cap">容量と整理</button></div>'+
+    '<div class="tp" id="hp-ver"></div><div class="tp" id="hp-snap"></div><div class="tp" id="hp-cap"></div>';
+  const show=p=>{
+    box.querySelectorAll('.tabs button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+    box.querySelectorAll('.tp').forEach(x=>x.classList.toggle('on',x.id==='hp-'+p));
+    if(p==='ver') drawVer(); if(p==='snap') drawSnap(); if(p==='cap') drawCap();
+  };
+  box.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>show(b.dataset.p));
+  const dlgClose=()=>{ const d=box.closest('dialog'); if(d) d.close(); };
+
+  /* この工程の履歴 */
+  async function drawVer(){
+    const pane=box.querySelector('#hp-ver'); pane.textContent='';
+    const vs=await getVersions(ST());
+    const bar=el('div','row'); bar.style.border='none'; bar.style.padding='0 0 8px';
+    const add=el('button','btn mini on','いまの内容を残す');
+    add.onclick=async()=>{
+      const inp=el('input'); inp.type='text'; inp.value=new Date().toLocaleString('ja-JP');
+      const holder=el('div'); holder.append(el('p','note','名前を付けます。'),inp);
+      // 履歴の画面の上に重ねて出す
+      if(await dialog('履歴の名前',holder,[{t:'取消',v:null},{t:'残す',v:'ok',primary:true}])!=='ok') return;
+      const cur=await getVersions(ST());
+      cur.unshift({t:Date.now(),name:inp.value.trim()||'無題',text:lines.join('\n'),n:countChars(lines)});
+      if(await setVersions(ST(),cur)) toast('履歴に残しました'); else toast('残せませんでした');
+      drawVer();
+    };
+    bar.append(add,el('span','note',vs.length+'件（上限'+VER_MAX+'件）'));
+    pane.append(bar);
+    if(!vs.length){ pane.append(el('p','note','この工程の履歴はまだありません。')); return; }
+    const t=el('table','diff');
+    t.innerHTML='<tr><th>日時</th><th>名前</th><th>字数</th><th></th></tr>';
+    vs.forEach((v,k)=>{
+      const tr=el('tr');
+      tr.innerHTML='<td>'+new Date(v.t).toLocaleString('ja-JP')+'</td><td></td><td>'+(v.n||0)+'</td><td></td>';
+      tr.children[1].textContent=v.name;
+      const cell=tr.children[3];
+      const ld=el('button','btn mini','戻す'), df=el('button','btn mini','比較'), x=el('button','btn mini','×');
+      x.title='この履歴を消す';
+      ld.onclick=async()=>{
+        if(!await confirmBox('履歴に戻す','「'+v.name+'」に戻します。いまの内容は置きかわります。','戻す')) return;
+        pushUndo(true); lines=v.text.split('\n'); renderAll(); afterEdit(); runCheck();
+        toast('戻しました'); dlgClose();
+      };
+      df.onclick=()=>showDiff(v);
+      x.onclick=async()=>{
+        const cur=await getVersions(ST());
+        const i=cur.findIndex(z=>z.t===v.t&&z.name===v.name);
+        if(i>=0) cur.splice(i,1);
+        await setVersions(ST(),cur);
+        toast('「'+v.name+'」を消しました');
+        drawVer();                         // 画面は閉じずにその場で更新する
+      };
+      cell.append(ld,df,x);
+      t.append(tr);
+    });
+    pane.append(t);
+  }
+
+  /* 自動保存 */
+  async function drawSnap(){
+    const pane=box.querySelector('#hp-snap'); pane.textContent='';
+    const snaps=await getSnaps();
+    pane.append(el('p','note','書いている間、20秒ごとに直近'+SNAP_MAX+'件まで自動で残します。'));
+    if(!snaps.length){ pane.append(el('p','note','自動保存はまだありません。')); return; }
+    const all=el('button','btn mini','自動保存をすべて消す');
+    all.onclick=async()=>{
+      if(!await confirmBox('自動保存を消す',snaps.length+'件をすべて消します。','消す')) return;
+      await BIG.del('snap'); toast('自動保存を消しました'); drawSnap();
+    };
+    pane.append(all);
+    const t=el('table','diff');
+    snaps.forEach((v,k)=>{
+      const tr=el('tr');
+      tr.innerHTML='<td>'+new Date(v.t).toLocaleString('ja-JP')+'</td><td></td><td></td>';
+      tr.children[1].textContent=v.w+' / '+v.s;
+      const ld=el('button','btn mini','戻す'), x=el('button','btn mini','×');
+      ld.onclick=async()=>{
+        if(!await confirmBox('自動保存から戻す','いまの内容を置きかえます。','戻す')) return;
+        pushUndo(true); lines=v.text.split('\n'); renderAll(); afterEdit(); runCheck();
+        toast('自動保存から戻しました'); dlgClose();
+      };
+      x.onclick=async()=>{
+        const cur=await getSnaps();
+        const i=cur.findIndex(z=>z.t===v.t); if(i>=0) cur.splice(i,1);
+        if(cur.length) await BIG.set('snap',cur); else await BIG.del('snap');
+        drawSnap();
+      };
+      tr.children[2].append(ld,x);
+      t.append(tr);
+    });
+    pane.append(t);
+  }
+
+  /* 容量と整理 */
+  async function drawCap(){
+    const pane=box.querySelector('#hp-cap'); pane.textContent='';
+    const used=smallUsed(), r=used/SMALL_LIMIT;
+    const meter=(label,val,max,note)=>{
+      const wrap=el('div'); wrap.style.margin='6px 0 12px';
+      const pct=max?Math.min(100,val/max*100):0;
+      const head=el('div'); head.style.display='flex'; head.style.justifyContent='space-between';
+      head.append(el('span',null,label),el('span','note',fmtB(val)+(max?' ／ '+fmtB(max):'')));
+      const bar=el('div'); bar.style.cssText='height:10px;border-radius:5px;background:var(--chrome-2);overflow:hidden;margin-top:4px';
+      const fill=el('div'); fill.style.cssText='height:100%;width:'+pct+'%;background:'+(pct>=80?'var(--err)':pct>=60?'var(--warn)':'var(--ai)');
+      bar.append(fill); wrap.append(head,bar);
+      if(note) wrap.append(el('p','note',note));
+      return wrap;
+    };
+    pane.append(meter('本文と設定（小さい領域）',used,SMALL_LIMIT,
+      r>=0.8?'残りわずかです。使わない台本を閉じてください。':'余裕があります。'));
+    // 大きい領域の内訳
+    let verTotal=0;
+    const rows=[];
+    for(const w of S.works){
+      for(const s of w.stages){
+        const vs=await getVersions(s);
+        const sz=sizeOf(vs);
+        verTotal+=sz;
+        rows.push({w,s,n:vs.length,sz,text:sizeOf(s.text)});
+      }
+    }
+    const snapSz=sizeOf(await getSnaps());
+    let est=null;
+    try{ if(navigator.storage&&navigator.storage.estimate) est=await navigator.storage.estimate(); }catch(e){}
+    pane.append(meter('履歴と自動保存（大きい領域）',verTotal+snapSz,est&&est.quota?est.quota:0,
+      BIG.ok?'大きい保存領域を使っています。':'この環境では大きい保存領域が使えないため、小さい領域に入れています。'));
+
+    // 一括整理
+    const tidy=el('div'); tidy.style.cssText='border:1px solid var(--rule);border-radius:6px;padding:10px;margin:4px 0 12px';
+    tidy.append(el('b',null,'古い履歴をまとめて消す'));
+    const line=el('div','row'); line.style.border='none'; line.style.padding='8px 0 0';
+    const keep=el('input'); keep.type='number'; keep.min='0'; keep.max=String(VER_MAX); keep.value='5'; keep.style.width='70px';
+    const go=el('button','btn mini on','実行');
+    line.append(el('span',null,'すべての工程で、新しい'),keep,el('span',null,'件だけ残す'),go);
+    const alsoSnap=el('label'); const cs=el('input'); cs.type='checkbox'; cs.checked=true;
+    alsoSnap.append(cs,document.createTextNode(' 自動保存も消す'));
+    tidy.append(line,alsoSnap);
+    go.onclick=async()=>{
+      const k=Math.max(0,Math.floor(+keep.value||0));
+      let drop=0;
+      for(const row of rows){ if(row.n>k) drop+=row.n-k; }
+      const msg='すべての台本・工程で、新しい'+k+'件より古い履歴'+drop+'件を消します。'+(cs.checked?'自動保存も消します。':'')+'元に戻せません。';
+      if(!await confirmBox('古い履歴を消す',msg,'消す')) return;
+      for(const row of rows){
+        if(row.n>k){ const vs=await getVersions(row.s); await setVersions(row.s,vs.slice(0,k)); }
+      }
+      if(cs.checked) await BIG.del('snap');
+      const o=await purgeOrphans();
+      toast(drop+'件の履歴を消しました'+(o?'（使われていない履歴'+o+'件も片付けました）':''));
+      drawCap();
+    };
+    pane.append(tidy);
+
+    // 内訳の表
+    pane.append(el('p','note','台本と工程ごとの内訳'));
+    const t=el('table','diff');
+    t.innerHTML='<tr><th>台本 / 工程</th><th>本文</th><th>履歴</th><th></th></tr>';
+    rows.sort((a,b)=>b.sz-a.sz).forEach(row=>{
+      const tr=el('tr');
+      tr.innerHTML='<td></td><td>'+fmtB(row.text)+'</td><td>'+row.n+'件 '+fmtB(row.sz)+'</td><td></td>';
+      tr.children[0].textContent=row.w.name+' / '+row.s.name;
+      if(row.n){
+        const x=el('button','btn mini','履歴を消す');
+        x.onclick=async()=>{
+          if(!await confirmBox('履歴を消す','「'+row.w.name+' / '+row.s.name+'」の履歴'+row.n+'件をすべて消します。','消す')) return;
+          await setVersions(row.s,[]); toast('消しました'); drawCap();
+        };
+        tr.children[3].append(x);
+      }
+      t.append(tr);
+    });
+    pane.append(t);
+  }
+
+  const d=dialog('履歴',box,[{t:'閉じる',v:null}]);
+  show(tab==='cap'||tab==='snap'?tab:'ver');
+  await d;
+}
+
+function showDiff(v){
+  const a=v.text.split('\n'), b=lines;
+  const box=el('div');
+  const t=el('table','diff');
+  let rows='',n=0;
+  for(let i=0;i<Math.max(a.length,b.length)&&n<200;i++){
+    if((a[i]||'')===(b[i]||'')) continue;
+    n++;
+    rows+='<tr><td>'+(i+1)+'</td><td style="color:var(--err)">'+snip(shown(a[i]||''),40)+
+          '</td><td style="color:var(--ai)">'+snip(shown(b[i]||''),40)+'</td></tr>';
+  }
+  t.innerHTML='<tr><th>行</th><th>'+v.name+'</th><th>いま</th></tr>'+(rows||'<tr><td colspan="3">違いはありません</td></tr>');
+  box.append(el('p','note','行がずれている場合は同じ位置どうしで比べます。'),t);
+  dialog('履歴との比較',box,[{t:'閉じる',v:null}]);
+}
+
+/* ================== 工程・作品 ================== */
+function renderStages(){
+  const box=$('#stages'); box.textContent='';
+  W().stages.forEach((s,k)=>{
+    const b=el('button','stage'+(k===W().as?' on':''));
+    const dot=el('span','dot'+((s.marks&&s.marks.length)?'':' off'));
+    if(s.marks&&s.marks.length) dot.style.background=cvar(MARK_COLORS[(s.marks[0].c||1)-1]);
+    b.append(dot,el('span','nm',s.name),el('span','ct',String(countChars(s.text.split('\n')))));
+    const at=()=>W().stages.indexOf(s);
+    b.onclick=()=>{ const i=at(); if(i<0){ renderStages(); return; } W().as=i; save(); loadStage(); };
+    b.ondblclick=async()=>{
+      const inp=el('input'); inp.type='text'; inp.value=s.name;
+      const v=await dialog('工程',inp,[{t:'取消',v:null},{t:'削除',v:'del'},{t:'変更',v:'ok',primary:true}]);
+      if(v==='ok'&&inp.value.trim()){ s.name=inp.value.trim(); save(); loadStage(); }
+      if(v==='del'){
+        if(W().stages.length<2){ toast('最後の工程は消せません'); return; }
+        if(!await confirmBox('工程の削除','「'+s.name+'」を削除します。元に戻せません。','削除する')) return;
+        const i=at(); if(i<0){ renderStages(); return; }
+        W().stages.splice(i,1); W().as=Math.max(0,i-1); save(); loadStage(); purgeOrphans();
+      }
+    };
+    b.draggable=true;
+    b.ondragstart=e=>e.dataTransfer.setData('text/plain',s.id);
+    b.ondragover=e=>e.preventDefault();
+    b.ondrop=e=>{
+      e.preventDefault();
+      const id=e.dataTransfer.getData('text/plain');
+      const from=W().stages.findIndex(x=>x.id===id), to=at();
+      if(from<0||to<0||from===to) return;
+      const cur=ST();
+      const [m]=W().stages.splice(from,1); W().stages.splice(to,0,m);
+      W().as=W().stages.indexOf(cur); save(); renderStages(); renderRefSel();
+    };
+    box.append(b);
+  });
+  const add=el('button',null,'＋ 工程を追加'); add.id='stage-add';
+  add.onclick=async()=>{
+    const inp=el('input'); inp.type='text'; inp.placeholder='工程の名前';
+    if(await dialog('工程を追加',inp,[{t:'取消',v:null},{t:'追加',v:'ok',primary:true}])==='ok'&&inp.value.trim()){
+      W().stages.push(newStage(inp.value.trim())); W().as=W().stages.length-1; save(); loadStage();
+    }
+  };
+  box.append(add);
+}
+function renderWorks(){
+  const box=$('#worktabs'); box.textContent='';
+  S.works.forEach((w,k)=>{
+    const b=el('button','wtab'+(k===S.aw?' on':''));
+    b.append(el('span',null,w.name));
+    const x=el('span','x','×');
+    x.onclick=async e=>{
+      e.stopPropagation();
+      if(S.works.length<2){ toast('最後の台本は閉じられません'); return; }
+      if(!await confirmBox('台本を閉じる','「'+w.name+'」を閉じます。','閉じる')) return;
+      const i=S.works.indexOf(w); if(i<0){ renderWorks(); return; }
+      S.works.splice(i,1); S.aw=Math.max(0,i-1); save(); renderWorks(); loadStage(); purgeOrphans();
+    };
+    b.append(x);
+    const wat=()=>S.works.indexOf(w);
+    b.onclick=()=>{ const i=wat(); if(i<0){ renderWorks(); return; } S.aw=i; save(); renderWorks(); loadStage(); };
+    b.ondblclick=async()=>{
+      const inp=el('input'); inp.type='text'; inp.value=w.name;
+      if(await dialog('台本の名前',inp,[{t:'取消',v:null},{t:'変更',v:'ok',primary:true}])==='ok'&&inp.value.trim()){
+        w.name=inp.value.trim(); save(); renderWorks(); loadStage();
+      }
+    };
+    box.append(b);
+  });
+  const add=el('button',null,'＋'); add.id='wtab-add';
+  add.onclick=()=>{ S.works.push(newWork('台本'+(S.works.length+1))); S.aw=S.works.length-1; save(); renderWorks(); loadStage(); };
+  box.append(add);
+}
+
+/* ================== 参照 ================== */
+function renderRefSel(){
+  const sel=$('#refsel'); sel.textContent='';
+  W().stages.forEach((s,k)=>{
+    if(k===W().as) return;
+    const o=el('option',null,s.name); o.value=String(k); sel.append(o);
+  });
+  if(!sel.options.length) sel.append(el('option',null,'（他の工程がありません）'));
+  if(S.cfg.refStage!=null&&[...sel.options].some(o=>o.value===String(S.cfg.refStage))) sel.value=String(S.cfg.refStage);
+  renderRef();
+}
+function renderRef(){
+  const box=$('#refed'); box.textContent='';
+  const s=W().stages[+$('#refsel').value]||null;
+  if(!s){ box.append(el('div','empty','参照できる工程がありません。')); return; }
+  const f=document.createDocumentFragment();
+  s.text.split('\n').forEach(raw=>{
+    const d=el('div','ln t-'+lineType(raw));
+    d.innerHTML=decorate(raw,s.mode||'plain');
+    f.append(d);
+  });
+  box.append(f);
+}
+$('#refsel').onchange=()=>{ S.cfg.refStage=$('#refsel').value; save(); renderRef(); };
+$('#refed').addEventListener('input',()=>{
+  const s=W().stages[+$('#refsel').value]||null; if(!s) return;
+  s.text=[...$('#refed').children].map(d=>rawFromLine(d,s.mode||'plain')).join('\n');
+  save(); renderStages();
+});
+$('#ref-size').oninput=e=>{ const v=+e.target.value; if(v>=9&&v<=30){ S.cfg.refSize=v; applyLook(); save(); } };
+$('#ed-size').oninput=e=>{ const v=+e.target.value; if(v>=9&&v<=34){ S.cfg.size=v; applyLook(); save(); } };
+$('#ref-hide').onclick=()=>{ S.cfg.refOn=false; applyLook(); save(); };
+
+/* ================== 見た目の適用 ================== */
+function applyLook(){
+  const r=document.documentElement.style;
+  r.setProperty('--ed-font',S.cfg.font);
+  r.setProperty('--ed-size',S.cfg.size+'px');
+  r.setProperty('--ref-size',S.cfg.refSize+'px');
+  r.setProperty('--ed-lh',String(S.cfg.lh));
+  r.setProperty('--fx-at-bg',S.cfg.fx.atBg);
+  r.setProperty('--fx-pp-bg',S.cfg.fx.ppBg);
+  r.setProperty('--fx-pp-fg',S.cfg.fx.ppFg);
+  setFxColors(S.cfg.fx);
+  r.setProperty('--bad-a',String(S.cfg.badAlpha));
+  r.setProperty('--bad-bar',S.cfg.badBar+'px');
+  ED.classList.toggle('guide',S.cfg.guide!==false);
+  document.body.className='st-'+S.cfg.badStyle;
+  $('#stages').style.width=S.cfg.stagesW+'px';
+  $('#side').style.width=S.cfg.sideW+'px';
+  $('#refbox').style.height=S.cfg.refH+'px';
+  $('#refbox').classList.toggle('hide',!S.cfg.refOn);
+  $('#sp3').style.display=S.cfg.refOn?'':'none';
+  $('#ref-size').value=S.cfg.refSize; $('#ed-size').value=S.cfg.size;
+}
+/* 幅・高さのドラッグ */
+function drag(handle,fn){
+  handle.addEventListener('pointerdown',e=>{
+    e.preventDefault(); handle.setPointerCapture(e.pointerId); handle.classList.add('drag');
+    const move=ev=>fn(ev);
+    const up=()=>{ handle.classList.remove('drag'); save();
+      handle.removeEventListener('pointermove',move); handle.removeEventListener('pointerup',up); };
+    handle.addEventListener('pointermove',move); handle.addEventListener('pointerup',up);
+  });
+}
+drag($('#sp1'),e=>{ S.cfg.stagesW=Math.max(90,Math.min(400,e.clientX)); applyLook(); });
+drag($('#sp2'),e=>{ S.cfg.sideW=Math.max(180,Math.min(760,innerWidth-e.clientX)); applyLook(); });
+drag($('#sp3'),e=>{
+  const side=$('#side').getBoundingClientRect();
+  const top=$('#refbox').getBoundingClientRect().top;
+  const max=Math.max(80,side.bottom-top-170);   // タブと一覧の場所を必ず残す
+  S.cfg.refH=Math.max(80,Math.min(max,e.clientY-top));
+  applyLook();
+});
+
+/* ================== 設定 ================== */
+async function settings(){
+  const box=el('div');
+  box.innerHTML=
+   '<div class="tabs">'+
+   '<button data-p="look" class="on">表示</button><button data-p="chk">チェック</button>'+
+   '<button data-p="key">ショートカット</button><button data-p="spk">読み上げ</button>'+
+   '<button data-p="dic">辞書</button><button data-p="num">レス番号</button>'+
+   '<button data-p="asi">補助入力</button></div>'+
+   '<div class="tp on" id="p-look"></div><div class="tp" id="p-chk"></div>'+
+   '<div class="tp" id="p-key"></div><div class="tp" id="p-spk"></div>'+
+   '<div class="tp" id="p-dic"></div><div class="tp" id="p-num"></div><div class="tp" id="p-asi"></div>';
+  box.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+    box.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+    box.querySelectorAll('.tp').forEach(x=>x.classList.toggle('on',x.id==='p-'+b.dataset.p));
+  });
+
+  /* 表示 */
+  box.querySelector('#p-look').innerHTML='<div class="kv">'+
+    '<label>フォント</label><select id="f-font">'+FONTS.map(f=>'<option value="'+f[1]+'">'+f[0]+'</option>').join('')+'</select>'+
+    '<label>文字の大きさ（px）</label><input type="number" id="f-size" min="9" max="34" step="1">'+
+    '<label>参照の文字の大きさ（px）</label><input type="number" id="f-ref" min="9" max="30" step="1">'+
+    '<label>日時ハイライト（@@）の色</label><input type="color" id="fx-at">'+
+    '<label>時間経過（++）の背景</label><input type="color" id="fx-ppb">'+
+    '<label>時間経過（++）の文字</label><input type="color" id="fx-ppf">'+
+    '<label></label><span><button class="btn mini" id="fx-reset">既定の黄・赤に戻す</button></span>'+
+    '<label>行間</label><span><input type="number" id="f-lh" min="1" max="3" step="0.05" style="width:80px">'+
+      ' <button class="btn mini" id="f-lh-doc">ドキュメントに合わせる</button></span>'+
+    '<label>40字の目安線</label><input type="checkbox" id="f-guide">'+
+    '<label>参照を表示</label><input type="checkbox" id="f-refon">'+
+    '</div><p class="note">ドキュメントの既定は Arial です。別のフォントにすると、'+
+    'ここでの見た目と貼り付け後の見た目が変わります（書き出しには常に Arial を指定します）。</p>';
+  const q=id=>box.querySelector(id);
+  q('#f-font').value=S.cfg.font; q('#f-size').value=S.cfg.size; q('#f-ref').value=S.cfg.refSize;
+  q('#f-lh').value=S.cfg.lh;
+  q('#fx-at').value=S.cfg.fx.atBg; q('#fx-ppb').value=S.cfg.fx.ppBg; q('#fx-ppf').value=S.cfg.fx.ppFg;
+  const fxPrev=()=>{
+    const r=document.documentElement.style;
+    r.setProperty('--fx-at-bg',q('#fx-at').value);
+    r.setProperty('--fx-pp-bg',q('#fx-ppb').value);
+    r.setProperty('--fx-pp-fg',q('#fx-ppf').value);
+  };
+  ['#fx-at','#fx-ppb','#fx-ppf'].forEach(id=>q(id).oninput=fxPrev);
+  q('#fx-reset').onclick=()=>{ q('#fx-at').value='#ffff00'; q('#fx-ppb').value='#ffff00'; q('#fx-ppf').value='#ff0000'; fxPrev(); };
+  q('#f-lh-doc').onclick=()=>{q('#f-lh').value=1.15;document.documentElement.style.setProperty('--ed-lh','1.15')};
+  q('#f-lh').oninput=()=>document.documentElement.style.setProperty('--ed-lh',String(+q('#f-lh').value||1.15));
+  q('#f-guide').checked=S.cfg.guide!==false; q('#f-refon').checked=S.cfg.refOn!==false;
+
+  /* チェックの見せ方 */
+  box.querySelector('#p-chk').innerHTML='<div class="kv">'+
+    '<label>見せ方</label><select id="c-style">'+
+      '<option value="bar">左の帯</option><option value="under">波線</option>'+
+      '<option value="both">帯と波線</option><option value="fill">背景の塗り</option></select>'+
+    '<label>濃さ</label><input type="range" id="c-a" min="0" max="60">'+
+    '<label>帯の太さ</label><input type="range" id="c-bar" min="2" max="12">'+
+    '</div><p class="note">種類ごとの色</p><div id="c-colors" class="kv"></div>';
+  q('#c-style').value=S.cfg.badStyle; q('#c-a').value=Math.round(S.cfg.badAlpha*100); q('#c-bar').value=S.cfg.badBar;
+  const cc=q('#c-colors');
+  KIND_ORDER.forEach(k=>{
+    const inp=el('input'); inp.type='color'; inp.dataset.k=k;
+    inp.value=rgbToHex(kindColor(k));
+    cc.append(el('label',null,KIND[k].label),inp);
+  });
+  const prev=()=>{
+    S.cfg.badStyle=q('#c-style').value; S.cfg.badAlpha=+q('#c-a').value/100; S.cfg.badBar=+q('#c-bar').value;
+    cc.querySelectorAll('input').forEach(i=>S.cfg.colors[i.dataset.k]=i.value);
+    applyLook(); paintHits(); renderHits();
+  };
+  ['#c-style','#c-a','#c-bar'].forEach(id=>q(id).oninput=prev);
+  cc.oninput=prev;
+
+  /* ショートカット（1機能につき3つまで） */
+  const kp=box.querySelector('#p-key');
+  kp.innerHTML='<p class="note">枠を押してからキーを押すと登録します。1つの機能に3つまで。</p>';
+  Object.keys(KEY_LABEL).forEach(a=>{
+    const row=el('div','keyrow');
+    row.append(el('span',null,KEY_LABEL[a]));
+    const wrap=el('span'); wrap.style.marginLeft='auto';
+    const draw=()=>{
+      wrap.textContent='';
+      (S.cfg.keys[a]||[]).forEach((k,idx)=>{
+        const c=el('button','keycap',k);
+        c.title='押すと削除';
+        c.onclick=()=>{ S.cfg.keys[a].splice(idx,1); draw(); save(); };
+        wrap.append(c);
+      });
+      if((S.cfg.keys[a]||[]).length<3){
+        const add=el('button','btn mini','＋');
+        add.onclick=()=>{
+          add.textContent='キーを押す…';
+          const h=ev=>{
+            ev.preventDefault(); ev.stopPropagation();
+            const k=keyOf(ev); if(!k) return;
+            document.removeEventListener('keydown',h,true);
+            for(const b in S.cfg.keys) S.cfg.keys[b]=(S.cfg.keys[b]||[]).filter(x=>x!==k);
+            (S.cfg.keys[a]=S.cfg.keys[a]||[]).push(k);
+            draw(); save();
+          };
+          document.addEventListener('keydown',h,true);
+        };
+        wrap.append(add);
+      }
+    };
+    draw(); row.append(wrap); kp.append(row);
+  });
+  const rst=el('button','btn mini','既定に戻す');
+  rst.onclick=()=>{ S.cfg.keys=JSON.parse(JSON.stringify(DEF_KEYS)); save(); toast('既定に戻しました。設定を開き直してください'); };
+  kp.append(rst);
+
+  /* 読み上げ */
+  const vo=speakVoices.map(v=>'<option value="'+v.name+'">'+v.name+'</option>').join('')||'<option value="">（日本語の声が見つかりません）</option>';
+  const vvo=vv.speakers.map(v=>'<option value="'+v.id+'">'+v.name+'</option>').join('');
+  box.querySelector('#p-spk').innerHTML='<div class="kv">'+
+    '<label>読み上げの方式</label><select id="s-eng"><option value="web">ブラウザ内蔵の音声</option>'+
+      '<option value="voicevox">VOICEVOX</option></select>'+
+    '<label>対象</label><select id="s-mode"><option value="body">本文のみ</option>'+
+      '<option value="thread">スレのみ</option><option value="all">両方</option></select>'+
+    '<label>速さ</label><input type="range" id="s-rate" min="5" max="25">'+
+    '<label>音量</label><input type="range" id="s-vol" min="0" max="100">'+
+    '<label>高さ</label><input type="range" id="s-pit" min="5" max="20">'+
+    '<label>空行での間（ミリ秒）</label><span><input type="number" id="s-gap" min="0" max="5000" step="50" style="width:90px">'+
+      ' <span class="note">空行1つあたり</span></span>'+
+    '</div>'+
+    '<div id="eng-web"><p class="note" style="margin-top:12px">ブラウザ内蔵の音声</p><div class="kv">'+
+      '<label>本文の声</label><select id="s-v1">'+vo+'</select>'+
+      '<label>スレの声</label><select id="s-v2">'+vo+'</select>'+
+      '</div><p class="note">Edgeの声には、端末に入っているものと通信して使うものがあります。'+
+      '通信の有無で声が変わるため、使う声を選んで固定してください。</p></div>'+
+    '<div id="eng-vv"><p class="note" style="margin-top:12px">VOICEVOX</p><div class="kv">'+
+      '<label>接続先</label><span><input type="text" id="s-url" placeholder="http://127.0.0.1:50021" style="width:200px">'+
+        ' <button class="btn mini" id="s-conn">接続を確かめる</button></span>'+
+      '<label>状態</label><span id="s-stat" class="note">—</span>'+
+      '<label>本文の話者</label><select id="s-vv1">'+vvo+'</select>'+
+      '<label>スレの話者</label><select id="s-vv2">'+vvo+'</select>'+
+      '</div>'+
+      '<p class="note">VOICEVOXを起動してから接続してください。'+
+      'つながらない場合は推定原因と対処を出し、通信ログを保存できます。</p>'+
+      '<p><button class="btn mini" id="s-log">通信ログを保存</button></p></div>';
+  q('#s-eng').value=S.cfg.speak.engine||'web';
+  q('#s-mode').value=S.cfg.speak.mode; q('#s-v1').value=S.cfg.speak.bodyVoice; q('#s-v2').value=S.cfg.speak.threadVoice;
+  q('#s-rate').value=Math.round((S.cfg.speak.rate||1)*10);
+  q('#s-vol').value=Math.round((S.cfg.speak.volume??1)*100);
+  q('#s-pit').value=Math.round((S.cfg.speak.pitch||1)*10);
+  q('#s-url').value=S.cfg.speak.vvUrl||'';
+  q('#s-gap').value=S.cfg.speak.gapMs;
+  const syncEng=()=>{
+    const v=q('#s-eng').value;
+    q('#eng-web').style.display=v==='web'?'':'none';
+    q('#eng-vv').style.display=v==='voicevox'?'':'none';
+  };
+  q('#s-eng').onchange=syncEng; syncEng();
+  const setStat=()=>{
+    const st=q('#s-stat');
+    if(!st) return;
+    if(vv.base){ st.textContent='つながっています（版 '+(vv.version||'?')+' ／ 話者 '+vv.speakers.length+'件）'; st.style.color='var(--ai)'; }
+    else{ st.textContent='未接続'; st.style.color='var(--ink-3)'; }
+  };
+  setStat();
+  if(vv.speakers.length){ q('#s-vv1').value=String(S.cfg.speak.vvBody); q('#s-vv2').value=String(S.cfg.speak.vvThread); }
+  q('#s-conn').onclick=async()=>{
+    q('#s-conn').textContent='確認中…';
+    vv.setUrl(q('#s-url').value);
+    const r=await vv.connect();
+    q('#s-conn').textContent='接続を確かめる';
+    setStat();
+    if(r.ok){
+      const opts=vv.speakers.map(v=>'<option value="'+v.id+'">'+v.name+'</option>').join('');
+      q('#s-vv1').innerHTML=opts; q('#s-vv2').innerHTML=opts;
+      q('#s-vv1').value=String(S.cfg.speak.vvBody); q('#s-vv2').value=String(S.cfg.speak.vvThread);
+      if(!q('#s-vv1').value) q('#s-vv1').selectedIndex=0;
+      if(!q('#s-vv2').value) q('#s-vv2').selectedIndex=Math.min(1,vv.speakers.length-1);
+      toast('つながりました（話者 '+vv.speakers.length+'件）');
+    }else{
+      vvTrouble(r.reason);
+    }
+  };
+  q('#s-log').onclick=saveVvLog;
+
+  /* 辞書 */
+  const DK=[['approved','承認済みの接続詞'],['headDeny','接続詞に見えるが認めない形'],
+            ['headExempt','文頭の例外'],
+            ['fusejiChar','伏字にする漢字'],['fusejiWord','伏字にする語'],
+            ['kanjiExempt','漢数字の許容'],['kanjiCaution','要確認の数詞'],['proper','固有名詞（漢数字を見逃す）'],
+            ['nonJoyo','許可外常用漢字リスト'],
+            ['dupAllow','重複とみなさない語'],['dupCommon','近くで繰り返してよい語']];
+  box.querySelector('#p-dic').innerHTML=
+    '<div class="row" style="border:none;padding:0 0 8px">'+
+      '<input type="text" id="d-q" placeholder="語を探す" style="flex:1">'+
+      '<span id="d-hit" class="note"></span></div>'+
+    '<p class="note">1行に1語で書きます。文末音の分類は語尾ごとに決まっているため、ここでは編集できません。</p>'+
+    DK.map(d=>'<div data-sec="'+d[0]+'"><p style="margin:10px 0 3px">'+d[1]+
+      ' <span class="note" data-n="'+d[0]+'"></span></p><textarea data-d="'+d[0]+'"></textarea></div>').join('');
+  const setCounts=()=>box.querySelectorAll('#p-dic [data-n]').forEach(n=>{
+    const ta=box.querySelector('textarea[data-d="'+n.dataset.n+'"]');
+    n.textContent='（'+ta.value.split('\n').filter(x=>x.trim()).length+'語）';
+  });
+  box.querySelectorAll('#p-dic textarea').forEach(t=>{
+    t.value=(DICT[t.dataset.d]||[]).join('\n');
+    t.oninput=setCounts;
+  });
+  // 重複・構文崩れの追加パターン（形＝理由＝直し方）
+  box.querySelector('#p-dic').insertAdjacentHTML('beforeend',
+    '<p style="margin:14px 0 3px">重複・構文崩れに足す形'+
+    ' <span class="note" id="dx-n"></span></p>'+
+    '<textarea id="d-extra" placeholder="についてを＝「について」と「を」が重なっています＝「について」だけにする"></textarea>'+
+    '<p class="note">1行に1件、「形＝理由＝直し方」で書きます。'+
+    '形の先頭と末尾を / で囲むと正規表現として扱います。</p>');
+  box.querySelector('#d-extra').value=(DICT.dupExtra||[])
+    .map(r=>[(r[0] instanceof RegExp)?('/'+r[0].source+'/'):r[0],r[1],r[2]].join('＝')).join('\n');
+  box.querySelector('#dx-n').textContent='（'+(DICT.dupExtra||[]).length+'件）';
+  setCounts();
+  const dq=box.querySelector('#d-q');
+  dq.oninput=()=>{
+    const q=dq.value.trim();
+    let total=0, firstSec=null;
+    DK.forEach(([k,label])=>{
+      const sec=box.querySelector('[data-sec="'+k+'"]');
+      const ta=box.querySelector('textarea[data-d="'+k+'"]');
+      const words=ta.value.split('\n').map(x=>x.trim()).filter(Boolean);
+      const n=q?words.filter(w=>w.includes(q)).length:0;
+      total+=n;
+      sec.style.opacity=(!q||n)?'1':'.35';
+      if(q&&n&&!firstSec){ firstSec=[sec,ta,words.find(w=>w.includes(q))]; }
+    });
+    box.querySelector('#d-hit').textContent=q?(total?total+'件':'見つかりません'):'';
+    if(firstSec){
+      firstSec[0].scrollIntoView({block:'nearest'});
+      const ta=firstSec[1], at=ta.value.indexOf(firstSec[2]);
+      if(at>=0){ ta.focus(); ta.setSelectionRange(at,at+firstSec[2].length); }
+    }
+  };
+
+  /* レス番号 */
+  box.querySelector('#p-num').innerHTML='<div class="kv">'+
+    '<label>通常の飛ばし幅</label><span><input type="number" id="g1" style="width:70px"> 〜 <input type="number" id="g2" style="width:70px"></span>'+
+    '<label>1〜3時間後</label><span><input type="number" id="g3" style="width:70px"> 〜 <input type="number" id="g4" style="width:70px"></span>'+
+    '<label>翌日</label><span><input type="number" id="g5" style="width:70px"> 〜 <input type="number" id="g6" style="width:70px"></span>'+
+    '<label>数日後</label><span><input type="number" id="g7" style="width:70px"> 〜 <input type="number" id="g8" style="width:70px"></span>'+
+    '<label>注意する飛び幅</label><input type="number" id="g9" style="width:70px">'+
+    '</div><p class="note">「注意する飛び幅」は、時間の注釈がないのにこれ以上飛んでいるとき知らせます。</p>'+
+    '<p class="note" style="margin-top:14px">通常の飛ばし幅の出やすさ</p>'+
+    '<div id="gw"></div>'+
+    '<p class="note">数が大きいほど選ばれやすくなります。0にすると使いません。'+
+    '全部0のときは均等に選びます。</p>';
+  const g=S.cfg.gap;
+  [['#g1',g.normal[0]],['#g2',g.normal[1]],['#g3',g.hours[0]],['#g4',g.hours[1]],
+   ['#g5',g.nextday[0]],['#g6',g.nextday[1]],['#g7',g.days[0]],['#g8',g.days[1]],
+   ['#g9',S.cfg.jumpHint]].forEach(([id,v])=>q(id).value=v);
+
+  /* 補助入力 */
+  box.querySelector('#p-asi').innerHTML=
+    '<p class="note">アプリが勝手に文字を足す動きです。合わないときはすべて切ってください。</p>'+
+    '<div class="kv">'+
+    '<label>番号のあとに空の太字行を足す</label><input type="checkbox" id="a-empty">'+
+    '<label>改行したとき太字を引き継ぐ</label><input type="checkbox" id="a-keep">'+
+    '<label>@@ を閉じたら自動で装飾に変える</label><input type="checkbox" id="a-eff">'+
+    '<label>目印をつけたらメモを聞く</label><input type="checkbox" id="a-note">'+
+    '</div>'+
+    '<p class="note">いずれも既定は切です。「次の番号」は番号の行だけを入れます。</p>';
+  q('#a-empty').checked=!!S.cfg.assist.emptyLine;
+  q('#a-keep').checked=!!S.cfg.assist.keepBold;
+  q('#a-eff').checked=!!S.cfg.assist.autoEffect;
+  q('#a-note').checked=S.cfg.askNote!==false;
+
+  /* 通常の飛ばし幅の重み */
+  const gw=box.querySelector('#gw');
+  const drawW=()=>{
+    const a=+q('#g1').value||1, b=+q('#g2').value||1;
+    gw.textContent='';
+    if(b-a>40){ gw.append(el('p','note','範囲が広すぎるため個別の指定はできません')); return; }
+    const grid=el('div','kv'); grid.style.gridTemplateColumns='repeat(auto-fill,minmax(92px,1fr))';
+    for(let n=a;n<=b;n++){
+      const wrap=el('label'); wrap.style.display='flex'; wrap.style.gap='5px'; wrap.style.alignItems='center';
+      const inp=el('input'); inp.type='number'; inp.min='0'; inp.max='99'; inp.style.width='52px';
+      inp.dataset.n=String(n);
+      inp.value=(S.cfg.gapWeights[n]!=null?S.cfg.gapWeights[n]:1);
+      wrap.append(el('span',null,n+'：'),inp);
+      grid.append(wrap);
+    }
+    gw.append(grid);
+  };
+  drawW();
+  q('#g1').oninput=drawW; q('#g2').oninput=drawW;
+
+  /* 読み上げの辞書 */
+  box.querySelector('#p-spk').insertAdjacentHTML('beforeend',
+    '<p class="note" style="margin-top:14px">読み方の辞書</p>'+
+    '<textarea id="s-dict" placeholder="五島列島＝ごとうれっとう"></textarea>'+
+    '<p class="note">1行に1件、「元の言葉＝読み」の形で書きます。長い言葉から先に当てます。</p>');
+  q('#s-dict').value=(S.cfg.speak.dict||[]).map(p=>p[0]+'＝'+p[1]).join('\n');
+
+  const before=JSON.stringify({s:S.cfg.badStyle,a:S.cfg.badAlpha,b:S.cfg.badBar,c:S.cfg.colors});
+  const v=await dialog('設定',box,[{t:'取消',v:null},{t:'保存',v:'ok',primary:true}]);
+  if(v!=='ok'){
+    applyLook();
+    const b=JSON.parse(before);
+    S.cfg.badStyle=b.s; S.cfg.badAlpha=b.a; S.cfg.badBar=b.b; S.cfg.colors=b.c;
+    applyLook(); paintHits(); renderHits(); return;
+  }
+  S.cfg.font=q('#f-font').value; S.cfg.size=+q('#f-size').value||16; S.cfg.refSize=+q('#f-ref').value||14;
+  S.cfg.lh=Math.min(3,Math.max(1,+q('#f-lh').value||1.15)); S.cfg.lhSet=true;
+  S.cfg.fx={atBg:q('#fx-at').value,ppBg:q('#fx-ppb').value,ppFg:q('#fx-ppf').value};
+  S.cfg.guide=q('#f-guide').checked; S.cfg.refOn=q('#f-refon').checked;
+  S.cfg.speak.engine=q('#s-eng').value;
+  S.cfg.speak.mode=q('#s-mode').value; S.cfg.speak.bodyVoice=q('#s-v1').value; S.cfg.speak.threadVoice=q('#s-v2').value;
+  S.cfg.speak.vvUrl=q('#s-url').value.trim();
+  S.cfg.speak.gapMs=Math.max(0,Math.min(5000,+q('#s-gap').value||0));
+  if(q('#s-vv1').value) S.cfg.speak.vvBody=+q('#s-vv1').value;
+  if(q('#s-vv2').value) S.cfg.speak.vvThread=+q('#s-vv2').value;
+  vvCache.clear(); vvPending.clear();
+  S.cfg.speak.rate=+q('#s-rate').value/10; S.cfg.speak.volume=+q('#s-vol').value/100; S.cfg.speak.pitch=+q('#s-pit').value/10;
+  box.querySelectorAll('#p-dic textarea[data-d]').forEach(t=>{
+    DICT[t.dataset.d]=t.value.split('\n').map(x=>x.trim()).filter(Boolean);
+  });
+  DICT.dupExtra=q('#d-extra').value.split('\n').map(l=>{
+    const p=l.split(/[＝=]/).map(x=>x.trim());
+    if(!p[0]) return null;
+    let pat=p[0];
+    if(pat.length>2&&pat.startsWith('/')&&pat.endsWith('/')){
+      try{ pat=new RegExp(pat.slice(1,-1)); }catch(e){ return null; }
+    }
+    return [pat,p[1]||'不自然な重なりです',p[2]||'',3];
+  }).filter(Boolean);
+  const num=id=>+q(id).value||0;
+  S.cfg.gap={normal:[num('#g1'),num('#g2')],hours:[num('#g3'),num('#g4')],
+             nextday:[num('#g5'),num('#g6')],days:[num('#g7'),num('#g8')]};
+  S.cfg.jumpHint=num('#g9')||10;
+  const nw={};
+  gw.querySelectorAll('input').forEach(i2=>{ nw[i2.dataset.n]=Math.max(0,+i2.value||0); });
+  S.cfg.gapWeights=nw;
+  S.cfg.speak.dict=q('#s-dict').value.split('\n').map(l=>{
+    const m=l.split(/[＝=]/);
+    return (m.length>=2&&m[0].trim())?[m[0].trim(),m.slice(1).join('=').trim()]:null;
+  }).filter(Boolean);
+  S.cfg.assist.emptyLine=q('#a-empty').checked;
+  S.cfg.assist.keepBold=q('#a-keep').checked;
+  S.cfg.assist.autoEffect=q('#a-eff').checked;
+  S.cfg.askNote=q('#a-note').checked;
+  applyLook(); save(); runCheck(); renderRef();
+}
+function rgbToHex(c){
+  c=String(c).trim();
+  if(c.startsWith('#')) return c.length===4?'#'+c[1]+c[1]+c[2]+c[2]+c[3]+c[3]:c;
+  const m=c.match(/\d+/g);
+  return m?'#'+m.slice(0,3).map(x=>(+x).toString(16).padStart(2,'0')).join(''):'#888888';
+}
+
+/* ================== 状態バー ================== */
+function updateStatus(){
+  const b=$('#status'); b.textContent='';
+  const add=t=>{const s=el('span');s.innerHTML=t;b.append(s)};
+  const n=countChars(lines);
+  const i=curLineIndex();
+  add(ST().name+' <b>'+n.toLocaleString()+'</b> 字');
+  const rg=selectedRange();
+  if(rg&&rg[0]!==rg[1]) add('選択 <b>'+countChars(lines.slice(rg[0],rg[1]+1)).toLocaleString()+'</b> 字');
+  else if(i>=0) add('ここまで <b>'+countChars(lines.slice(0,i+1)).toLocaleString()+'</b> 字');
+  const nums=analyze(lines).threadBlocks.filter(x=>x.num!==null).map(x=>x.num);
+  if(nums.length) add('レス番号 '+Math.min(...nums)+'〜'+Math.max(...nums));
+  add('全'+lines.length+'行');
+  add(MODE()==='marks'?'記号あり':'記号なし');
+  if(ST().check&&!paused){
+    const open=hits.filter(h=>h.st==='open');
+    const e=open.filter(h=>h.sev==='err').length, w=open.filter(h=>h.sev!=='err').length;
+    const p=el('span','pill'+(e?' bad':''));
+    p.textContent=open.length?('エラー'+e+' / 注意'+w):'指摘なし';
+    b.append(p);
+  }
+}
+
+/* ================== 起動 ================== */
+['#fc-fg','#fc-bg'].forEach(id=>{
+  const b=$(id);
+  b.addEventListener('mousedown',e=>e.preventDefault());   // 押しても選択を消さない
+  b.onclick=()=>{ if($('#palette')){ closePalette(); return; } openPalette(id==='#fc-fg'?'fg':'bg',b); };
+});
+$('#fc-clear').addEventListener('mousedown',e=>e.preventDefault());
+$('#fc-clear').onclick=()=>{
+  const sr=selectedRaw();
+  if(!sr){ toast('色を外す文字を選んでください'); return; }
+  colorSel=sr;
+  if(applyColors({fg:null,bg:null})) toast('色を外しました');
+  colorSel=null;
+};
+$('#b-open').onclick=()=>$('#filein').click();
+$('#b-save').onclick=saveFile;
+$('#b-copy').onclick=copyMenu;
+$('#b-paste').onclick=pasteIn;
+if($('#b-paste-plain')) $('#b-paste-plain').onclick=pastePlain;
+$('#b-all').onclick=selectAll;
+$('#b-mode').onclick=toggleMode;
+$('#b-num').onclick=()=>insertNumber(false);
+$('#b-renum').onclick=doRenumber;
+$('#b-mark').onclick=toggleMark;
+$('#b-find').onclick=openFind;
+$('#b-speak').onclick=toggleSpeak;
+$('#b-ver').onclick=versionMenu;
+$('#b-set').onclick=settings;
+$('#b-pause').onclick=()=>{paused=!paused;$('#b-pause').classList.toggle('on',paused);runCheck();renderHits()};
+$('#ck-on').onchange=e=>{ ST().check=e.target.checked; save(); runCheck(); };
+document.querySelectorAll('.stab').forEach(t=>t.onclick=()=>showSide(t.dataset.t));
+function showSide(t){
+  S.cfg.side=t; save();
+  document.querySelectorAll('.stab').forEach(x=>x.classList.toggle('on',x.dataset.t===t));
+  document.querySelectorAll('.sbody').forEach(x=>x.classList.toggle('on',x.id==='sb-'+t));
+  if(t==='mark') renderMarks();
+  if(t==='out') renderOutline();
+  if(t==='find') renderFind();
+}
+document.addEventListener('selectionchange',()=>{ if(document.activeElement===ED) updateStatus(); });
+
+load();
+applyLook();
+paintSwatches();
+renderWorks();
+loadStage();
+showSide(S.cfg.side||'chk');
+if(_pending) setTimeout(()=>toast(_pending),300);
+migrateToBig();
+window.addEventListener('beforeunload',()=>{
+  ST().text=lines.join('\n');
+  try{ localStorage.setItem(LS,JSON.stringify(S)); }catch(e){}
+});
+
+
+
+</script>
+</body>
+</html>
